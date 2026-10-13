@@ -21,6 +21,8 @@ Quick context for whoever picks this up next (human or Claude).
 - Tests: 15 unit/fuzz passing (1,000 fuzz runs). Fork test written, not yet run (needs RPC access).
 - End-to-end: page ABI + bytecode verified on a local anvil chain (deploy, deposit, accrue, redeem).
 - Page: published as a private artifact "BTC Vault"; same file at `web/index.html`.
+- Repo: github.com/kevcanning2021/vault (public). Page served by GitHub Pages from `main` /docs → https://kevcanning2021.github.io/vault/
+- Kevin uses the **SafePal mobile app**: open the Pages URL in SafePal's DApp browser.
 - **Not deployed yet.** Kevin deploys from the page or with `forge script`.
 
 ## Key addresses (Base Sepolia, 84532)

@@ -27,3 +27,7 @@
 ## Iteration 2 (minimum deposit + daily earnings)
 - **Enforce the minimum in the contract, not just the page.** `mint()` routes through `_deposit` too, so one check in `_deposit` covers both entry points.
 - **"Daily earnings" is a projection.** Aave's rate moves every block, so the page labels it "at today's rate". True historical daily earnings need snapshots (see IMPROVEMENTS #6).
+
+## Iteration 3 (hosting for SafePal mobile)
+- Ask which wallet early: mobile wallets need a hosted HTTPS page opened in their DApp browser.
+- This session can push to an existing repo but can't create repos or change Pages settings; Kevin creates the repo and flips Pages on (Settings → Pages → main /docs).
