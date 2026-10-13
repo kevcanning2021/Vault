@@ -13,10 +13,12 @@ Quick context for whoever picks this up next (human or Claude).
 | Fees | None |
 | Frontend | Claude's call → single HTML page, ethers v6.13.4 |
 | Upgradeability | None (immutable) |
+| Minimum deposit | 1 USDC, enforced in contract and page (2026-10-13) |
+| Daily earnings | Shown on page as projection: balance × today's Aave rate (2026-10-13) |
 
 ## Current state
-- Contract: `src/BtcVault.sol`, compiles with solc 0.8.26, 9.5 KB bytecode.
-- Tests: 12 unit/fuzz passing (1,000 fuzz runs). Fork test written, not yet run (needs RPC access).
+- Contract: `src/BtcVault.sol`, compiles with solc 0.8.26, 9.6 KB bytecode.
+- Tests: 15 unit/fuzz passing (1,000 fuzz runs). Fork test written, not yet run (needs RPC access).
 - End-to-end: page ABI + bytecode verified on a local anvil chain (deploy, deposit, accrue, redeem).
 - Page: published as a private artifact "BTC Vault"; same file at `web/index.html`.
 - **Not deployed yet.** Kevin deploys from the page or with `forge script`.

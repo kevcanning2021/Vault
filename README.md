@@ -11,6 +11,8 @@ You ──USDC──▶ BtcVault ──supply──▶ Aave v3 Pool
 
 - `totalAssets()` = aUSDC held + any idle USDC. Share price rises as aUSDC grows.
 - `earned()` = totalAssets − net deposited.
+- Minimum deposit: **1 USDC** (`MIN_DEPOSIT`).
+- The page shows **per-day earnings**: your balance × today's Aave rate over 24h.
 - `maxWithdraw()` is capped by the USDC Aave actually has free right now.
 - `emergencyExit()` pulls everything out of Aave and pauses deposits; `resume()` undoes it.
 - `rescue()` recovers stray tokens but can never touch USDC or aUSDC.
@@ -40,7 +42,7 @@ Use Aave's test USDC from the [Aave faucet](https://app.aave.com/faucet/), not C
 
 ```bash
 git init && forge install OpenZeppelin/openzeppelin-contracts@v5.1.0 foundry-rs/forge-std
-forge test               # 12 unit/fuzz tests against mock Aave
+forge test               # 15 unit/fuzz tests against mock Aave
 BASE_SEPOLIA_RPC=https://sepolia.base.org forge test --match-contract Fork   # real Aave fork test
 
 # Deploy (uses an encrypted keystore — never paste a private key in a command)

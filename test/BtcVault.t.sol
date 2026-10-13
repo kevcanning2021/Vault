@@ -71,6 +71,23 @@ contract BtcVaultTest is Test {
         assertEq(vault.netDeposited(), 600e6);
     }
 
+    function test_BelowMinimumDepositReverts() public {
+        vm.prank(me);
+        vm.expectRevert(abi.encodeWithSelector(BtcVault.BelowMinimumDeposit.selector, 999_999, 1e6));
+        vault.deposit(999_999, me);
+    }
+
+    function test_ExactMinimumDepositWorks() public {
+        _deposit(1e6);
+        assertEq(vault.totalAssets(), 1e6);
+    }
+
+    function test_MintBelowMinimumReverts() public {
+        vm.prank(me);
+        vm.expectRevert();
+        vault.mint(1e6, me); // 1e6 shares ≈ 1 wei of USDC with the 6-decimal offset
+    }
+
     function test_StrangerCannotDeposit() public {
         vm.prank(stranger);
         vm.expectRevert();

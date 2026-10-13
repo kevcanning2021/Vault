@@ -17,6 +17,9 @@ import {IAavePool} from "./interfaces/IAavePool.sol";
 contract BtcVault is ERC4626, Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
+    /// @notice Smallest deposit accepted: 1 USDC (6 decimals).
+    uint256 public constant MIN_DEPOSIT = 1e6;
+
     IAavePool public immutable POOL;
     IERC20 public immutable A_TOKEN;
 
@@ -32,6 +35,7 @@ contract BtcVault is ERC4626, Ownable, ReentrancyGuard {
     error OnlyOwner();
     error VaultExited();
     error CannotRescueVaultAssets();
+    error BelowMinimumDeposit(uint256 assets, uint256 minimum);
 
     constructor(IERC20 usdc, IAavePool pool, IERC20 aToken, address owner_)
         ERC20("BTC Vault USDC", "btcVault")
@@ -106,6 +110,7 @@ contract BtcVault is ERC4626, Ownable, ReentrancyGuard {
     {
         if (caller != owner()) revert OnlyOwner();
         if (exited) revert VaultExited();
+        if (assets < MIN_DEPOSIT) revert BelowMinimumDeposit(assets, MIN_DEPOSIT);
         super._deposit(caller, receiver, assets, shares); // pulls USDC in, mints shares
         POOL.supply(asset(), assets, address(this), 0);
         netDeposited += assets;

@@ -23,3 +23,7 @@
 ## Frontend
 - Artifact pages run in a sandboxed frame. A browser wallet may not inject there, and never inside the mobile app. Ship the page as a file too and document how to host it.
 - Embedding the bytecode lets the user deploy from the page with one tap, no Foundry needed. Keep `build.py` as the single way to refresh it so the page never drifts from the contract.
+
+## Iteration 2 (minimum deposit + daily earnings)
+- **Enforce the minimum in the contract, not just the page.** `mint()` routes through `_deposit` too, so one check in `_deposit` covers both entry points.
+- **"Daily earnings" is a projection.** Aave's rate moves every block, so the page labels it "at today's rate". True historical daily earnings need snapshots (see IMPROVEMENTS #6).

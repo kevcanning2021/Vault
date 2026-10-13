@@ -35,7 +35,8 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
 .balance{font-family:var(--display);font-size:clamp(1.9rem,8vw,2.5rem);font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums;word-break:break-all}
 .balance small{font-family:var(--body);font-size:.9rem;color:var(--muted);font-weight:500;margin-left:6px}
-.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;border-top:1px solid var(--line);padding-top:14px}
+.stat small{font-size:.74rem;color:var(--muted)}
 .stat{display:grid;gap:2px;min-width:0}
 .stat b{font-family:var(--mono);font-weight:500;font-size:1rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .stat b.up{color:var(--good)}
@@ -89,6 +90,7 @@ code{font-family:var(--mono);font-size:.85em}
     <div class="balance"><span id="bal">1,250.48</span><small>USDC</small></div>
     <div class="stats">
       <div class="stat"><span class="label">Earned</span><b id="earned" class="up">+50.48</b></div>
+      <div class="stat"><span class="label">Per day</span><b id="daily" class="up">+0.1384</b><small>at today's rate</small></div>
       <div class="stat"><span class="label">Supply APY</span><b id="apy">4.12%</b></div>
       <div class="stat"><span class="label">Wallet</span><b id="wallet">2,000.00</b></div>
     </div>
@@ -104,7 +106,7 @@ code{font-family:var(--mono);font-size:.85em}
       <span>USDC</span>
       <button id="max" class="ghost">Max</button>
     </div>
-    <div class="hint"><span id="avail">Available: 2,000.00 USDC</span><span id="mode">Lent to Aave v3</span></div>
+    <div class="hint"><span id="avail">Available: 2,000.00 USDC · Min 1 USDC</span><span id="mode">Lent to Aave v3</span></div>
     <button id="go" class="primary" disabled>Connect wallet first</button>
     <div id="status" class="status" hidden></div>
   </section>
@@ -146,6 +148,7 @@ const USDC = "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f";
 const AUSDC = "0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC";
 const SCAN = "https://sepolia.basescan.org";
 const BYTECODE = "__BYTECODE__";
+const MIN_DEPOSIT = 1_000_000n; // 1 USDC, matches BtcVault.MIN_DEPOSIT
 
 const VAULT_ABI = [
   "constructor(address usdc,address pool,address aToken,address owner_)",
@@ -242,11 +245,12 @@ async function refresh() {
     const rd = await pool.getReserveData(USDC);
     const apr = Number(rd.currentLiquidityRate) / 1e27, sec = 31536000;
     $("apy").textContent = ((Math.pow(1 + apr/sec, sec) - 1) * 100).toFixed(2) + "%";
+    let base = 0n;
     if (vault) {
       const [total, earned, exited, owner, mw, mr] = await Promise.all([
         vault.totalAssets(), vault.earned(), vault.exited(), vault.owner(), vault.maxWithdraw(me), vault.maxRedeem(me)]);
       isOwner = owner.toLowerCase() === me.toLowerCase();
-      maxOut = mw; maxShares = mr;
+      maxOut = mw; maxShares = mr; base = exited ? 0n : total;
       $("bal").textContent = fmt(total, 6);
       $("earned").textContent = "+" + fmt(earned, 6);
       $("exitState").textContent = exited ? "Funds are parked in the vault. Deposits are paused." : "Funds are lent on Aave.";
@@ -256,6 +260,9 @@ async function refresh() {
     } else {
       $("bal").textContent = "0.00"; $("earned").textContent = "+0.00"; maxOut = 0n;
     }
+    // Projected interest for the next 24h: balance × (1 + APR/secs)^(86400) − balance
+    const daily = Number(ethers.formatUnits(base, 6)) * (Math.pow(1 + apr/sec, 86400) - 1);
+    $("daily").textContent = "+" + daily.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:4});
     $("exampleNote").hidden = true;
     renderAction();
   } catch (e) { say(errText(e),"err"); }
@@ -263,7 +270,7 @@ async function refresh() {
 
 function renderAction() {
   const avail = tab === "deposit" ? walletBal : maxOut;
-  $("avail").textContent = `Available: ${fmt(avail)} USDC`;
+  $("avail").textContent = `Available: ${fmt(avail)} USDC` + (tab === "deposit" ? " · Min 1 USDC" : "");
   const go = $("go");
   if (!signer) { go.disabled = true; go.textContent = "Connect wallet first"; return; }
   if (!vault)  { go.disabled = true; go.textContent = "Set up your vault below"; return; }
@@ -286,6 +293,7 @@ async function act() {
   const go = $("go"); go.disabled = true;
   try {
     if (tab === "deposit") {
+      if (amt < MIN_DEPOSIT) throw new Error("The minimum deposit is 1 USDC.");
       if (amt > walletBal) throw new Error("That's more USDC than your wallet holds.");
       const allowance = await usdc.allowance(me, vault.target);
       if (allowance < amt) {
