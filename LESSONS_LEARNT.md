@@ -31,3 +31,8 @@
 ## Iteration 3 (hosting for SafePal mobile)
 - Ask which wallet early: mobile wallets need a hosted HTTPS page opened in their DApp browser.
 - This session can push to an existing repo but can't create repos or change Pages settings; Kevin creates the repo and flips Pages on (Settings → Pages → main /docs).
+
+## Iteration 4 (getting test ETH)
+- **Test ETH was the hardest step, not the code.** Alchemy/QuickNode faucets need 0.001 real ETH on mainnet; Coinbase's CDP faucet returned "page not found" on mobile; it worked on desktop.
+- Lead with the desktop Coinbase CDP faucet (login only, no mainnet balance) and mention the mainnet-balance gate up front.
+- Claude in Chrome showed as "not connected" from this cloud session even with the extension working locally. Don't burn turns retrying; offer the manual 4-click route early.

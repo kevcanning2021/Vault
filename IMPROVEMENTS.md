@@ -22,3 +22,6 @@ Ordered roughly by value. ⚠ = do before real money.
 13. **CI**: GitHub Action running `forge test` + `python3 web/build.py` diff check, so the page bytecode can't drift from the contract.
 14. **Host the page** on GitHub Pages so it opens in MetaMask Mobile's browser.
 15. **Next.js + wagmi** version if this grows into a shared product (WalletConnect for mobile without a wallet browser).
+
+## Onboarding
+16. **Faucet checklist on the page**: show live ETH + USDC balances with ✓/✗ and the exact faucet to use for each, so setup is self-guided.
