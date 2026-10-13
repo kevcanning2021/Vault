@@ -24,6 +24,7 @@ Quick context for whoever picks this up next (human or Claude).
 - Repo: github.com/kevcanning2021/vault (public). Page served by GitHub Pages from `main` /docs → https://kevcanning2021.github.io/vault/
 - Kevin uses the **SafePal mobile app**: open the Pages URL in SafePal's DApp browser.
 - **Deployed on Base Sepolia by Kevin (2026-10-13)** from the page. Vault address: `0xC2831B377558Db5093FbE8F5295d8F0E65D1F889` (https://sepolia.basescan.org/address/0xC2831B377558Db5093FbE8F5295d8F0E65D1F889).
+- Live test 2026-10-13: deposited 2 USDC, withdrew 1 USDC via SafePal mobile — both worked. Left running to observe yield.
 
 ## Key addresses (Base Sepolia, 84532)
 - Pool `0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27`
