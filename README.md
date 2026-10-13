@@ -39,7 +39,7 @@ Use Aave's test USDC from the [Aave faucet](https://app.aave.com/faucet/), not C
 ## Developer route (Foundry)
 
 ```bash
-forge install            # pulls OpenZeppelin v5.1.0 + forge-std
+git init && forge install OpenZeppelin/openzeppelin-contracts@v5.1.0 foundry-rs/forge-std
 forge test               # 12 unit/fuzz tests against mock Aave
 BASE_SEPOLIA_RPC=https://sepolia.base.org forge test --match-contract Fork   # real Aave fork test
 
