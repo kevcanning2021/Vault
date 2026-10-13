@@ -36,3 +36,11 @@
 - **Test ETH was the hardest step, not the code.** Alchemy/QuickNode faucets need 0.001 real ETH on mainnet; Coinbase's CDP faucet returned "page not found" on mobile; it worked on desktop.
 - Lead with the desktop Coinbase CDP faucet (login only, no mainnet balance) and mention the mainnet-balance gate up front.
 - Claude in Chrome showed as "not connected" from this cloud session even with the extension working locally. Don't burn turns retrying; offer the manual 4-click route early.
+
+## Iteration 5 (mainnet prep)
+- **Ask the money questions before building mainnet** (amount, cap, owner, page layout). The answers changed the design: a cap became a constructor arg plus setter.
+- **OZ ERC4626 already enforces `maxDeposit`**, so capping there covers `deposit`; `maxMint` must convert the same room to shares. Keep a second check in `_deposit` as a backstop.
+- **Lowering the cap must never block withdrawals.** Tested explicitly.
+- **`vm.prank` only covers the next call.** `vault.redeem(vault.balanceOf(me), ...)` pranks `balanceOf`, not `redeem`. Read values into locals first.
+- **Keep the page backward compatible.** Old vaults have no `depositCap()`; the page catches the revert and shows "none (older vault)".
+- **Store vault addresses per chain** (`vault:<chainId>:<wallet>`) so test and real vaults never get mixed up.

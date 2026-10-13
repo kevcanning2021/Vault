@@ -21,7 +21,7 @@ contract BtcVaultTest is Test {
         usdc = new MockUSDC();
         pool = new MockPool(usdc);
         aToken = pool.aToken();
-        vault = new BtcVault(usdc, IAavePool(address(pool)), aToken, me);
+        vault = new BtcVault(usdc, IAavePool(address(pool)), aToken, me, 1_000_000e6);
         usdc.mint(me, 10_000e6);
         usdc.mint(stranger, 10_000e6);
         vm.prank(me);
@@ -86,6 +86,46 @@ contract BtcVaultTest is Test {
         vm.prank(me);
         vm.expectRevert();
         vault.mint(1e6, me); // 1e6 shares ≈ 1 wei of USDC with the 6-decimal offset
+    }
+
+    function test_DepositCapBlocksOverflow() public {
+        vm.prank(me);
+        vault.setDepositCap(100e6);
+        _deposit(60e6);
+        assertEq(vault.maxDeposit(me), 40e6);
+        vm.prank(me);
+        vm.expectRevert(); // ERC4626ExceededMaxDeposit
+        vault.deposit(41e6, me);
+        _deposit(40e6);
+        assertEq(vault.maxDeposit(me), 0);
+        assertEq(vault.maxMint(me), 0);
+    }
+
+    function test_InterestCanPushAboveCapButWithdrawStillWorks() public {
+        vm.prank(me);
+        vault.setDepositCap(100e6);
+        _deposit(100e6);
+        pool.accrue(address(vault), 5e6);
+        assertEq(vault.maxDeposit(me), 0);
+        vm.prank(me);
+        vault.withdraw(50e6, me, me);
+        assertEq(vault.maxDeposit(me), 45e6);
+    }
+
+    function test_LoweringCapNeverBlocksWithdraw() public {
+        _deposit(500e6);
+        vm.prank(me);
+        vault.setDepositCap(0);
+        uint256 shares = vault.balanceOf(me);
+        vm.prank(me);
+        vault.redeem(shares, me, me);
+        assertEq(vault.totalAssets(), 0);
+    }
+
+    function test_OnlyOwnerSetsCap() public {
+        vm.prank(stranger);
+        vm.expectRevert();
+        vault.setDepositCap(1);
     }
 
     function test_StrangerCannotDeposit() public {
@@ -163,6 +203,36 @@ contract BtcVaultTest is Test {
     }
 }
 
+/// @notice Runs against the real Aave v3 pool on Base MAINNET. Skipped unless BASE_RPC is set.
+///         Uses a fork: no real funds move.
+contract BtcVaultBaseForkTest is Test {
+    address constant POOL = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
+    address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address constant A_USDC = 0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB;
+
+    function test_BaseForkDepositEarnWithdraw() public {
+        string memory rpc = vm.envOr("BASE_RPC", string(""));
+        if (bytes(rpc).length == 0) {
+            vm.skip(true);
+            return;
+        }
+        vm.createSelectFork(rpc);
+        address me = makeAddr("me");
+        BtcVault vault = new BtcVault(IERC20(USDC), IAavePool(POOL), IERC20(A_USDC), me, 100e6);
+        deal(USDC, me, 100e6);
+        vm.startPrank(me);
+        IERC20(USDC).approve(address(vault), type(uint256).max);
+        vault.deposit(100e6, me);
+        assertEq(vault.maxDeposit(me), 0); // cap reached
+        vm.warp(block.timestamp + 30 days);
+        vm.roll(block.number + 1_300_000);
+        assertGt(vault.totalAssets(), 100e6); // real interest accrued
+        vault.redeem(vault.balanceOf(me), me, me);
+        vm.stopPrank();
+        assertGt(IERC20(USDC).balanceOf(me), 100e6);
+    }
+}
+
 /// @notice Runs against the real Aave v3 pool on Base Sepolia. Skipped unless BASE_SEPOLIA_RPC is set.
 contract BtcVaultForkTest is Test {
     address constant POOL = 0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27;
@@ -177,7 +247,7 @@ contract BtcVaultForkTest is Test {
         }
         vm.createSelectFork(rpc);
         address me = makeAddr("me");
-        BtcVault vault = new BtcVault(IERC20(USDC), IAavePool(POOL), IERC20(A_USDC), me);
+        BtcVault vault = new BtcVault(IERC20(USDC), IAavePool(POOL), IERC20(A_USDC), me, 1_000_000e6);
         deal(USDC, me, 1_000e6);
         vm.startPrank(me);
         IERC20(USDC).approve(address(vault), type(uint256).max);

@@ -12,6 +12,8 @@ You ──USDC──▶ BtcVault ──supply──▶ Aave v3 Pool
 - `totalAssets()` = aUSDC held + any idle USDC. Share price rises as aUSDC grows.
 - `earned()` = totalAssets − net deposited.
 - Minimum deposit: **1 USDC** (`MIN_DEPOSIT`).
+- **Deposit cap**: set at deploy (100 USDC on mainnet from the page), owner can change with `setDepositCap`. Never blocks withdrawals.
+- The page has a **Test · Base Sepolia / Real money · Base** switch. Real-money deposits and deploys need an extra in-page confirmation.
 - The page shows **per-day earnings**: your balance × today's Aave rate over 24h.
 - `maxWithdraw()` is capped by the USDC Aave actually has free right now.
 - `emergencyExit()` pulls everything out of Aave and pauses deposits; `resume()` undoes it.
@@ -42,12 +44,18 @@ Use Aave's test USDC from the [Aave faucet](https://app.aave.com/faucet/), not C
 
 ```bash
 git init && forge install OpenZeppelin/openzeppelin-contracts@v5.1.0 foundry-rs/forge-std
-forge test               # 15 unit/fuzz tests against mock Aave
+forge test               # 19 unit/fuzz tests against mock Aave
 BASE_SEPOLIA_RPC=https://sepolia.base.org forge test --match-contract Fork   # real Aave fork test
 
 # Deploy (uses an encrypted keystore — never paste a private key in a command)
 cast wallet import dev --interactive
 forge script script/Deploy.s.sol --rpc-url https://sepolia.base.org --account dev --broadcast
+
+# Base mainnet fork test (no real funds move)
+BASE_RPC=https://mainnet.base.org forge test --match-contract BaseFork -vv
+
+# Base mainnet deploy (REAL MONEY — see MAINNET_CHECKLIST.md)
+forge script script/DeployBase.s.sol --rpc-url https://mainnet.base.org --account dev --broadcast
 
 # After any contract change, refresh the bytecode in the page:
 forge build && python3 web/build.py

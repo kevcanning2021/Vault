@@ -12,12 +12,13 @@ contract Deploy is Script {
     address constant POOL = 0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27;
     address constant USDC = 0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f; // Aave test USDC (faucet-mintable)
     address constant A_USDC = 0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC;
+    uint256 constant CAP = 1_000_000e6; // test money: effectively uncapped
 
     function run() external returns (BtcVault vault) {
         require(block.chainid == 84532, "Not Base Sepolia");
         vm.startBroadcast();
         address owner_ = msg.sender;
-        vault = new BtcVault(IERC20(USDC), IAavePool(POOL), IERC20(A_USDC), owner_);
+        vault = new BtcVault(IERC20(USDC), IAavePool(POOL), IERC20(A_USDC), owner_, CAP);
         vm.stopBroadcast();
         console.log("BtcVault deployed at:", address(vault));
         console.log("Owner:", owner_);

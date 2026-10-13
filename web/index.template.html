@@ -69,6 +69,13 @@ details[open] summary::after{content:"−"}
 .row{display:flex;gap:8px;flex-wrap:wrap}
 .row input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:.82rem var(--mono);padding:10px;border-radius:8px}
 .danger{border-color:var(--bad);color:var(--bad)}
+.pill.real{color:var(--bad);border-color:currentColor;font-weight:500}
+.netswitch{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px}
+.netswitch button{border:0;background:transparent;color:var(--muted);font:600 .8rem var(--body);padding:8px;border-radius:7px;cursor:pointer}
+.netswitch button[aria-pressed="true"]{background:var(--bg);color:var(--ink)}
+.netswitch button[data-real][aria-pressed="true"]{color:var(--bad)}
+.realbanner{font-size:.84rem;color:var(--bad);border:1px solid var(--bad);border-radius:10px;padding:10px 12px}
+.realbanner b{font-weight:600}
 .confirm{display:grid;gap:8px;padding:12px;border:1px dashed var(--bad);border-radius:10px;font-size:.86rem}
 a{color:var(--accent)}
 code{font-family:var(--mono);font-size:.85em}
@@ -79,10 +86,16 @@ code{font-family:var(--mono);font-size:.85em}
   <header>
     <div class="brand"><div class="coin" aria-hidden="true">₿</div><h1>BTC Vault</h1></div>
     <div class="row" style="align-items:center">
-      <span id="net" class="pill">Base Sepolia</span>
+      <span id="net" class="pill">Test money</span>
       <button id="connect" class="ghost">Connect wallet</button>
     </div>
   </header>
+
+  <div class="netswitch" role="group" aria-label="Network">
+    <button id="netTest" aria-pressed="true">Test · Base Sepolia</button>
+    <button id="netReal" data-real aria-pressed="false">Real money · Base</button>
+  </div>
+  <div id="realBanner" class="realbanner" hidden><b>Real money.</b> This vault is unaudited. Keep amounts small; the deposit cap limits what it can hold.</div>
 
   <section class="panel" aria-label="Your position">
     <div id="exampleNote" class="example">Example figures. Connect your wallet to see your vault.</div>
@@ -108,19 +121,32 @@ code{font-family:var(--mono);font-size:.85em}
     </div>
     <div class="hint"><span id="avail">Available: 2,000.00 USDC · Min 1 USDC</span><span id="mode">Lent to Aave v3</span></div>
     <button id="go" class="primary" disabled>Connect wallet first</button>
+    <div id="realConfirm" class="confirm" hidden>
+      <span id="realConfirmText">You're about to deposit real USDC.</span>
+      <div class="row"><button id="realYes" class="ghost danger">Yes, deposit</button><button id="realNo" class="ghost">Cancel</button></div>
+    </div>
     <div id="status" class="status" hidden></div>
   </section>
 
   <details class="panel" id="setup">
     <summary>Vault setup</summary>
     <div class="inner">
-      <p>Your vault's contract address. Paste it here, or deploy a new vault owned by the connected wallet.</p>
+      <p>Your vault's contract address on this network. Paste it here, or deploy a new vault owned by the connected wallet. Test and real vaults are separate.</p>
       <div class="row">
         <input id="vaultAddr" placeholder="0x… vault address" aria-label="Vault address" spellcheck="false">
         <button id="saveAddr" class="ghost">Use</button>
       </div>
       <button id="deploy" class="ghost">Deploy a new vault</button>
-      <p>Need test USDC? Mint it on the <a href="https://app.aave.com/faucet/" target="_blank" rel="noopener">Aave faucet</a> (Base Sepolia, USDC). Test ETH for gas: <a href="https://docs.base.org/base-chain/tools/network-faucets" target="_blank" rel="noopener">Base faucets</a>.</p>
+      <div id="deployConfirm" class="confirm" hidden>
+        <span>This deploys a vault on Base mainnet using real ETH for gas (a few cents). It starts with a 100 USDC deposit cap.</span>
+        <div class="row"><button id="deployYes" class="ghost danger">Yes, deploy</button><button id="deployNo" class="ghost">Cancel</button></div>
+      </div>
+      <p id="capLine">Deposit cap: <b id="capVal">—</b></p>
+      <div class="row" id="capRow">
+        <input id="capInput" inputmode="decimal" placeholder="New cap in USDC" aria-label="New deposit cap in USDC">
+        <button id="capBtn" class="ghost">Set cap</button>
+      </div>
+      <p id="faucetLine">Need test USDC? Mint it on the <a href="https://app.aave.com/faucet/" target="_blank" rel="noopener">Aave faucet</a> (Base Sepolia, USDC). Test ETH for gas: <a href="https://docs.base.org/base-chain/tools/network-faucets" target="_blank" rel="noopener">Base faucets</a>.</p>
       <p>Contract: <a id="scan" href="#" target="_blank" rel="noopener">—</a></p>
     </div>
   </details>
@@ -141,28 +167,40 @@ code{font-family:var(--mono);font-size:.85em}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
 <script>
-const CHAIN_ID = 84532n;
-const CHAIN_HEX = "0x14a34";
-const POOL = "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27";
-const USDC = "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f";
-const AUSDC = "0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC";
-const SCAN = "https://sepolia.basescan.org";
+const NETS = {
+  "84532": { id: 84532n, hex: "0x14a34", name: "Base Sepolia", real: false,
+    pool: "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27",
+    usdc: "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f",   // Aave test USDC
+    ausdc: "0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC",
+    scan: "https://sepolia.basescan.org", rpc: "https://sepolia.base.org",
+    cap: 1_000_000_000_000n },                            // 1,000,000 test USDC
+  "8453": { id: 8453n, hex: "0x2105", name: "Base", real: true,
+    pool: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",   // native USDC on Base
+    ausdc: "0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB",  // aBasUSDC
+    scan: "https://basescan.org", rpc: "https://mainnet.base.org",
+    cap: 100_000_000n }                                   // 100 USDC to start
+};
+// Addresses: bgd-labs/aave-address-book (AaveV3BaseSepolia.sol, AaveV3Base.sol), checked 2026-10-13
 const BYTECODE = "__BYTECODE__";
 const MIN_DEPOSIT = 1_000_000n; // 1 USDC, matches BtcVault.MIN_DEPOSIT
+const UNCAPPED = 10n ** 30n;
 
 const VAULT_ABI = [
-  "constructor(address usdc,address pool,address aToken,address owner_)",
+  "constructor(address usdc,address pool,address aToken,address owner_,uint256 depositCap_)",
   "function owner() view returns (address)",
   "function totalAssets() view returns (uint256)",
   "function earned() view returns (uint256)",
   "function exited() view returns (bool)",
+  "function depositCap() view returns (uint256)",
   "function balanceOf(address) view returns (uint256)",
-  "function convertToAssets(uint256) view returns (uint256)",
+  "function maxDeposit(address) view returns (uint256)",
   "function maxWithdraw(address) view returns (uint256)",
   "function maxRedeem(address) view returns (uint256)",
   "function deposit(uint256 assets,address receiver) returns (uint256)",
   "function withdraw(uint256 assets,address receiver,address owner) returns (uint256)",
   "function redeem(uint256 shares,address receiver,address owner) returns (uint256)",
+  "function setDepositCap(uint256 newCap)",
   "function emergencyExit()",
   "function resume()"
 ];
@@ -180,32 +218,59 @@ const store = {
   get(k){ try { return localStorage.getItem(k) } catch { return null } },
   set(k,v){ try { localStorage.setItem(k,v) } catch {} }
 };
+let NET = NETS[store.get("net") || "84532"] || NETS["84532"];
 let provider, signer, me, vault, usdc, pool;
-let tab = "deposit", walletBal = 0n, maxOut = 0n, maxShares = 0n, isOwner = false;
+let tab = "deposit", walletBal = 0n, maxIn = 0n, maxOut = 0n, maxShares = 0n, isOwner = false, cap = null;
 
 const fmt = (v, dp=2) => Number(ethers.formatUnits(v, 6)).toLocaleString(undefined,{minimumFractionDigits:dp,maximumFractionDigits:dp});
+const min = (a,b) => a < b ? a : b;
 
 function say(msg, kind="") { const s=$("status"); s.hidden=false; s.className="status "+kind; s.innerHTML=msg; }
-function txLink(h){ return `<a href="${SCAN}/tx/${h}" target="_blank" rel="noopener">${h.slice(0,10)}…</a>`; }
+function txLink(h){ return `<a href="${NET.scan}/tx/${h}" target="_blank" rel="noopener">${h.slice(0,10)}…</a>`; }
 function errText(e){ return (e?.shortMessage || e?.info?.error?.message || e?.message || String(e)).replace(/</g,"&lt;"); }
+const vaultKey = () => `vault:${NET.id}:${me}`;
+
+function paintNet() {
+  $("netTest").setAttribute("aria-pressed", !NET.real);
+  $("netReal").setAttribute("aria-pressed", NET.real);
+  $("realBanner").hidden = !NET.real;
+  $("faucetLine").hidden = NET.real;
+  const n = $("net");
+  n.className = "pill " + (NET.real ? "real" : "ok");
+  n.textContent = NET.real ? "● Real money" : "● Test money";
+}
+
+async function pickNet(key) {
+  NET = NETS[key]; store.set("net", key); paintNet();
+  if (provider) { try { await ensureChain(); } catch (e) { say(errText(e),"err"); } location.reload(); }
+}
 
 async function connect() {
   if (!window.ethereum) {
-    say("No wallet found in this browser. Open this page in a browser with MetaMask or Coinbase Wallet installed, or in your wallet app's built-in browser.","err");
+    say("No wallet found in this browser. Open this page in your wallet app's built-in browser (SafePal → DApp browser), or a browser with MetaMask.","err");
     return;
   }
   try {
     provider = new ethers.BrowserProvider(window.ethereum);
     await provider.send("eth_requestAccounts", []);
+    // If the wallet is already on a supported network, follow it.
+    const cur = String((await provider.getNetwork()).chainId);
+    if (NETS[cur]) { NET = NETS[cur]; store.set("net", cur); }
     await ensureChain();
+    paintNet();
     signer = await provider.getSigner();
     me = await signer.getAddress();
-    usdc = new ethers.Contract(USDC, ERC20_ABI, signer);
-    pool = new ethers.Contract(POOL, POOL_ABI, provider);
+    usdc = new ethers.Contract(NET.usdc, ERC20_ABI, signer);
+    pool = new ethers.Contract(NET.pool, POOL_ABI, provider);
     $("connect").textContent = me.slice(0,6)+"…"+me.slice(-4);
-    const saved = store.get("vault:"+me);
+    // migrate the testnet address saved by earlier versions of this page
+    if (!NET.real && !store.get(vaultKey()) && store.get("vault:"+me)) store.set(vaultKey(), store.get("vault:"+me));
+    const saved = store.get(vaultKey());
     if (saved) { $("vaultAddr").value = saved; useVault(saved); }
-    else { $("setup").open = true; await refresh(); say("Connected. Paste your vault address or deploy a new vault under Vault setup."); }
+    else {
+      $("vaultAddr").value = ""; $("setup").open = true; await refresh();
+      say(`Connected to ${NET.name}. Paste your vault address or deploy a new vault under Vault setup.`);
+    }
     window.ethereum.on?.("accountsChanged", () => location.reload());
     window.ethereum.on?.("chainChanged", () => location.reload());
   } catch (e) { say(errText(e),"err"); }
@@ -213,27 +278,25 @@ async function connect() {
 
 async function ensureChain() {
   const net = await provider.getNetwork();
-  if (net.chainId === CHAIN_ID) { setNet(true); return; }
+  if (net.chainId === NET.id) return;
   try {
-    await provider.send("wallet_switchEthereumChain", [{ chainId: CHAIN_HEX }]);
+    await provider.send("wallet_switchEthereumChain", [{ chainId: NET.hex }]);
   } catch (e) {
     if (e?.error?.code === 4902 || e?.code === 4902 || /Unrecognized|not added/i.test(errText(e))) {
-      await provider.send("wallet_addEthereumChain", [{ chainId: CHAIN_HEX, chainName: "Base Sepolia",
+      await provider.send("wallet_addEthereumChain", [{ chainId: NET.hex, chainName: NET.name,
         nativeCurrency: { name:"Ether", symbol:"ETH", decimals:18 },
-        rpcUrls: ["https://sepolia.base.org"], blockExplorerUrls: [SCAN] }]);
+        rpcUrls: [NET.rpc], blockExplorerUrls: [NET.scan] }]);
     } else throw e;
   }
   provider = new ethers.BrowserProvider(window.ethereum);
-  setNet(true);
 }
-function setNet(ok){ const n=$("net"); n.className="pill "+(ok?"ok":"warn"); n.textContent= ok ? "● Base Sepolia" : "Wrong network"; }
 
 function useVault(addr) {
   if (!ethers.isAddress(addr)) { say("That isn't a valid contract address.","err"); return; }
   addr = ethers.getAddress(addr);
   vault = new ethers.Contract(addr, VAULT_ABI, signer);
-  store.set("vault:"+me, addr);
-  const a = $("scan"); a.href = `${SCAN}/address/${addr}`; a.textContent = addr.slice(0,10)+"…"+addr.slice(-6);
+  store.set(vaultKey(), addr);
+  const a = $("scan"); a.href = `${NET.scan}/address/${addr}`; a.textContent = addr.slice(0,10)+"…"+addr.slice(-6);
   refresh();
 }
 
@@ -242,32 +305,34 @@ async function refresh() {
   try {
     walletBal = await usdc.balanceOf(me);
     $("wallet").textContent = fmt(walletBal);
-    const rd = await pool.getReserveData(USDC);
+    const rd = await pool.getReserveData(NET.usdc);
     const apr = Number(rd.currentLiquidityRate) / 1e27, sec = 31536000;
     $("apy").textContent = ((Math.pow(1 + apr/sec, sec) - 1) * 100).toFixed(2) + "%";
     let base = 0n;
     if (vault) {
-      const [total, earned, exited, owner, mw, mr] = await Promise.all([
-        vault.totalAssets(), vault.earned(), vault.exited(), vault.owner(), vault.maxWithdraw(me), vault.maxRedeem(me)]);
+      const [total, earned, exited, owner, mw, mr, md] = await Promise.all([
+        vault.totalAssets(), vault.earned(), vault.exited(), vault.owner(), vault.maxWithdraw(me), vault.maxRedeem(me), vault.maxDeposit(me)]);
+      cap = await vault.depositCap().catch(() => null); // vaults deployed before the cap existed have none
       isOwner = owner.toLowerCase() === me.toLowerCase();
-      maxOut = mw; maxShares = mr; base = exited ? 0n : total;
+      maxOut = mw; maxShares = mr; maxIn = md; base = exited ? 0n : total;
       $("bal").textContent = fmt(total, 6);
       $("earned").textContent = "+" + fmt(earned, 6);
       $("exitState").textContent = exited ? "Funds are parked in the vault. Deposits are paused." : "Funds are lent on Aave.";
       $("exitBtn").hidden = exited; $("resumeBtn").hidden = !exited;
       $("mode").textContent = exited ? "Paused: not earning" : "Lent to Aave v3";
+      $("capVal").textContent = cap === null ? "none (older vault)" : (cap >= UNCAPPED ? "no limit" : fmt(cap, 0) + " USDC");
+      $("capRow").hidden = cap === null || !isOwner;
       if (!isOwner) say("This vault belongs to another wallet. Only its owner can deposit or withdraw.","err");
     } else {
-      $("bal").textContent = "0.00"; $("earned").textContent = "+0.00"; maxOut = 0n;
+      $("bal").textContent = "0.00"; $("earned").textContent = "+0.00"; maxOut = 0n; maxIn = 0n;
+      $("capVal").textContent = "—"; $("capRow").hidden = true;
     }
-    // Projected interest for the next 24h: balance × (1 + APR/secs)^(86400) − balance
     const perDay = amt => amt * (Math.pow(1 + apr/sec, 86400) - 1);
     const fmt4 = n => n.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:4});
     if (base > 0n) {
       $("daily").textContent = "+" + fmt4(perDay(Number(ethers.formatUnits(base, 6))));
       $("dailyNote").textContent = "at today's rate";
     } else {
-      // Nothing in the vault yet: show what the wallet balance would earn once deposited.
       $("daily").textContent = "+0.0000";
       $("dailyNote").textContent = walletBal > 0n
         ? `deposit ${fmt(walletBal, 0)} → +${fmt4(perDay(Number(ethers.formatUnits(walletBal, 6))))}/day`
@@ -279,32 +344,58 @@ async function refresh() {
 }
 
 function renderAction() {
-  const avail = tab === "deposit" ? walletBal : maxOut;
-  $("avail").textContent = `Available: ${fmt(avail)} USDC` + (tab === "deposit" ? " · Min 1 USDC" : "");
+  const room = vault ? min(walletBal, maxIn) : walletBal;
+  const avail = tab === "deposit" ? room : maxOut;
+  let hint = `Available: ${fmt(avail)} USDC`;
+  if (tab === "deposit") hint += (vault && maxIn < walletBal) ? ` · cap room ${fmt(maxIn)}` : " · Min 1 USDC";
+  $("avail").textContent = hint;
   const go = $("go");
   if (!signer) { go.disabled = true; go.textContent = "Connect wallet first"; return; }
   if (!vault)  { go.disabled = true; go.textContent = "Set up your vault below"; return; }
   if (!isOwner){ go.disabled = true; go.textContent = "Not your vault"; return; }
   go.disabled = false;
-  go.textContent = tab === "deposit" ? "Deposit to vault" : "Withdraw to wallet";
+  go.textContent = tab === "deposit" ? (NET.real ? "Deposit real USDC" : "Deposit to vault") : "Withdraw to wallet";
 }
 
 function setTab(t){
   tab = t;
   $("tabDeposit").setAttribute("aria-selected", t==="deposit");
   $("tabWithdraw").setAttribute("aria-selected", t==="withdraw");
-  $("amount").value = ""; renderAction();
+  $("amount").value = ""; $("realConfirm").hidden = true; renderAction();
 }
 
-async function act() {
+function readAmount() {
   let amt;
-  try { amt = ethers.parseUnits(($("amount").value || "0").trim(), 6); } catch { say("Enter an amount like 100 or 25.5","err"); return; }
-  if (amt <= 0n) { say("Enter an amount above zero.","err"); return; }
+  try { amt = ethers.parseUnits(($("amount").value || "0").trim(), 6); } catch { say("Enter an amount like 100 or 25.5","err"); return null; }
+  if (amt <= 0n) { say("Enter an amount above zero.","err"); return null; }
+  return amt;
+}
+
+function checkDeposit(amt) {
+  if (amt < MIN_DEPOSIT) throw new Error("The minimum deposit is 1 USDC.");
+  if (amt > walletBal) throw new Error("That's more USDC than your wallet holds.");
+  if (amt > maxIn) throw new Error(maxIn === 0n
+    ? "The vault is full or paused. Raise the deposit cap under Vault setup."
+    : `That's over the deposit cap. You can add up to ${fmt(maxIn)} USDC.`);
+}
+
+async function onGo() {
+  const amt = readAmount(); if (amt === null) return;
+  if (tab === "deposit" && NET.real) {
+    try { checkDeposit(amt); } catch (e) { say(errText(e),"err"); return; }
+    $("realConfirmText").textContent = `You're about to deposit ${fmt(amt)} real USDC into an unaudited vault on Base. You can withdraw any time.`;
+    $("realConfirm").hidden = false;
+    return;
+  }
+  act(amt);
+}
+
+async function act(amt) {
+  $("realConfirm").hidden = true;
   const go = $("go"); go.disabled = true;
   try {
     if (tab === "deposit") {
-      if (amt < MIN_DEPOSIT) throw new Error("The minimum deposit is 1 USDC.");
-      if (amt > walletBal) throw new Error("That's more USDC than your wallet holds.");
+      checkDeposit(amt);
       const allowance = await usdc.allowance(me, vault.target);
       if (allowance < amt) {
         say("Step 1 of 2: approve the vault to take this USDC. Confirm in your wallet.");
@@ -329,18 +420,30 @@ async function act() {
 }
 
 async function deploy() {
+  $("deployConfirm").hidden = true;
   if (!signer) { await connect(); if (!signer) return; }
   try {
-    say("Confirm the deployment in your wallet. It costs a little test ETH.");
+    say(`Confirm the deployment in your wallet. It costs a little ${NET.real ? "real" : "test"} ETH.`);
     const f = new ethers.ContractFactory(VAULT_ABI, BYTECODE, signer);
-    const c = await f.deploy(USDC, POOL, AUSDC, me);
+    const c = await f.deploy(NET.usdc, NET.pool, NET.ausdc, me, NET.cap);
     say("Deploying… " + txLink(c.deploymentTransaction().hash));
     await c.waitForDeployment();
     const addr = await c.getAddress();
     $("vaultAddr").value = addr;
     useVault(addr);
-    say("Vault deployed at <code>" + addr + "</code>. Saved in this browser.", "ok");
+    say(`Vault deployed on ${NET.name} at <code>${addr}</code>. Saved in this browser.`, "ok");
   } catch (e) { say(errText(e),"err"); }
+}
+
+async function setCap() {
+  let v;
+  try { v = ethers.parseUnits(($("capInput").value || "").trim(), 6); } catch { say("Enter a cap like 250","err"); return; }
+  try {
+    say("Confirm the new cap in your wallet.");
+    const tx = await vault.setDepositCap(v); say("Updating cap… " + txLink(tx.hash)); await tx.wait();
+    say("Deposit cap is now " + fmt(v, 0) + " USDC. " + txLink(tx.hash), "ok"); $("capInput").value = "";
+  } catch (e) { say(errText(e),"err"); }
+  refresh();
 }
 
 async function ownerTx(fn, label) {
@@ -349,13 +452,21 @@ async function ownerTx(fn, label) {
   $("exitConfirm").hidden = true; refresh();
 }
 
+paintNet();
+$("netTest").onclick = () => pickNet("84532");
+$("netReal").onclick = () => pickNet("8453");
 $("connect").onclick = connect;
 $("tabDeposit").onclick = () => setTab("deposit");
 $("tabWithdraw").onclick = () => setTab("withdraw");
-$("max").onclick = () => { const v = tab==="deposit" ? walletBal : maxOut; $("amount").value = ethers.formatUnits(v, 6); };
-$("go").onclick = act;
+$("max").onclick = () => { const v = tab==="deposit" ? (vault ? min(walletBal, maxIn) : walletBal) : maxOut; $("amount").value = ethers.formatUnits(v, 6); };
+$("go").onclick = onGo;
+$("realYes").onclick = () => { const a = readAmount(); if (a !== null) act(a); };
+$("realNo").onclick = () => { $("realConfirm").hidden = true; };
 $("saveAddr").onclick = () => signer ? useVault($("vaultAddr").value.trim()) : say("Connect your wallet first.","err");
-$("deploy").onclick = deploy;
+$("deploy").onclick = () => NET.real ? ($("deployConfirm").hidden = false) : deploy();
+$("deployYes").onclick = deploy;
+$("deployNo").onclick = () => { $("deployConfirm").hidden = true; };
+$("capBtn").onclick = setCap;
 $("exitBtn").onclick = () => { if (!vault) return say("Set up your vault first.","err"); $("exitConfirm").hidden = false; };
 $("exitNo").onclick = () => { $("exitConfirm").hidden = true; };
 $("exitYes").onclick = () => ownerTx("emergencyExit", "Emergency exit");
