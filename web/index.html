@@ -1,0 +1,346 @@
+<title>BTC Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one narrow column like a hardware-wallet screen — position on top, one action panel, setup tucked below. */
+:root{
+  --bg:#eef0f3; --panel:#ffffff; --ink:#151a22; --muted:#5d6675; --line:#d7dbe2;
+  --accent:#d9770a; --accent-ink:#ffffff; --accent-soft:#fbead6;
+  --good:#1f7a4d; --warn:#a15c00; --bad:#b3261e;
+  --display:"Unbounded", "Arial Black", system-ui, sans-serif;
+  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#10141a; --panel:#181e27; --ink:#e9edf3; --muted:#9aa4b3; --line:#2a3240;
+  --accent:#f39a2b; --accent-ink:#1a1206; --accent-soft:#3a2a14;
+  --good:#5cc98f; --warn:#f0b35a; --bad:#ff8a80; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#10141a; --panel:#181e27; --ink:#e9edf3; --muted:#9aa4b3; --line:#2a3240;
+  --accent:#f39a2b; --accent-ink:#1a1206; --accent-soft:#3a2a14;
+  --good:#5cc98f; --warn:#f0b35a; --bad:#ff8a80; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:480px;margin:0 auto;padding-inline:16px;padding-block:20px 40px;display:grid;gap:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{font-family:var(--display);font-size:1.15rem;font-weight:700;margin:0;letter-spacing:.01em}
+.coin{width:30px;height:30px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:.85rem}
+.pill{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--good);border-color:currentColor}
+.pill.warn{color:var(--warn);border-color:currentColor}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:14px}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.balance{font-family:var(--display);font-size:clamp(1.9rem,8vw,2.5rem);font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums;word-break:break-all}
+.balance small{font-family:var(--body);font-size:.9rem;color:var(--muted);font-weight:500;margin-left:6px}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.stat{display:grid;gap:2px;min-width:0}
+.stat b{font-family:var(--mono);font-weight:500;font-size:1rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat b.up{color:var(--good)}
+.example{font-size:.8rem;color:var(--warn);background:var(--accent-soft);padding:6px 10px;border-radius:8px}
+
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border-radius:10px;padding:4px;gap:4px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:600 .9rem var(--body);padding:9px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0 / .12)}
+.field{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;padding:4px 4px 4px 14px;gap:8px;background:var(--bg)}
+.field:focus-within{border-color:var(--accent)}
+.field input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:500 1.35rem var(--mono);padding:8px 0;outline:none}
+.field span{font-family:var(--mono);color:var(--muted);font-size:.85rem}
+.ghost{border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 .8rem var(--body);padding:7px 11px;border-radius:7px;cursor:pointer}
+.hint{font-size:.82rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.primary{border:0;background:var(--accent);color:var(--accent-ink);font:600 1rem var(--body);padding:14px;border-radius:10px;cursor:pointer;width:100%}
+.primary:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.status{font-family:var(--mono);font-size:.78rem;padding:10px 12px;border-radius:8px;background:var(--bg);color:var(--muted);overflow-wrap:anywhere}
+.status.ok{color:var(--good)} .status.err{color:var(--bad)}
+.status a{color:inherit}
+
+details.panel{gap:0}
+details.panel[open]{gap:14px}
+summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center}
+summary::after{content:"+";font-family:var(--mono);color:var(--muted)}
+details[open] summary::after{content:"−"}
+.inner{display:grid;gap:12px}
+.inner p{margin:0;font-size:.88rem;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:.82rem var(--mono);padding:10px;border-radius:8px}
+.danger{border-color:var(--bad);color:var(--bad)}
+.confirm{display:grid;gap:8px;padding:12px;border:1px dashed var(--bad);border-radius:10px;font-size:.86rem}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.85em}
+@media (prefers-reduced-motion: no-preference){ .primary,.ghost,.tabs button{transition:background .15s, opacity .15s} }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="coin" aria-hidden="true">₿</div><h1>BTC Vault</h1></div>
+    <div class="row" style="align-items:center">
+      <span id="net" class="pill">Base Sepolia</span>
+      <button id="connect" class="ghost">Connect wallet</button>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="Your position">
+    <div id="exampleNote" class="example">Example figures. Connect your wallet to see your vault.</div>
+    <div class="label">Vault balance</div>
+    <div class="balance"><span id="bal">1,250.48</span><small>USDC</small></div>
+    <div class="stats">
+      <div class="stat"><span class="label">Earned</span><b id="earned" class="up">+50.48</b></div>
+      <div class="stat"><span class="label">Supply APY</span><b id="apy">4.12%</b></div>
+      <div class="stat"><span class="label">Wallet</span><b id="wallet">2,000.00</b></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Deposit or withdraw">
+    <div class="tabs" role="tablist">
+      <button id="tabDeposit" role="tab" aria-selected="true">Deposit</button>
+      <button id="tabWithdraw" role="tab" aria-selected="false">Withdraw</button>
+    </div>
+    <div class="field">
+      <input id="amount" inputmode="decimal" placeholder="0.00" aria-label="Amount in USDC" autocomplete="off">
+      <span>USDC</span>
+      <button id="max" class="ghost">Max</button>
+    </div>
+    <div class="hint"><span id="avail">Available: 2,000.00 USDC</span><span id="mode">Lent to Aave v3</span></div>
+    <button id="go" class="primary" disabled>Connect wallet first</button>
+    <div id="status" class="status" hidden></div>
+  </section>
+
+  <details class="panel" id="setup">
+    <summary>Vault setup</summary>
+    <div class="inner">
+      <p>Your vault's contract address. Paste it here, or deploy a new vault owned by the connected wallet.</p>
+      <div class="row">
+        <input id="vaultAddr" placeholder="0x… vault address" aria-label="Vault address" spellcheck="false">
+        <button id="saveAddr" class="ghost">Use</button>
+      </div>
+      <button id="deploy" class="ghost">Deploy a new vault</button>
+      <p>Need test USDC? Mint it on the <a href="https://app.aave.com/faucet/" target="_blank" rel="noopener">Aave faucet</a> (Base Sepolia, USDC). Test ETH for gas: <a href="https://docs.base.org/base-chain/tools/network-faucets" target="_blank" rel="noopener">Base faucets</a>.</p>
+      <p>Contract: <a id="scan" href="#" target="_blank" rel="noopener">—</a></p>
+    </div>
+  </details>
+
+  <details class="panel" id="owner">
+    <summary>Safety controls</summary>
+    <div class="inner">
+      <p id="exitState">Funds are lent on Aave.</p>
+      <button id="exitBtn" class="ghost danger">Emergency exit</button>
+      <div id="exitConfirm" class="confirm" hidden>
+        <span>This pulls all USDC out of Aave into the vault and pauses deposits. Interest stops until you resume.</span>
+        <div class="row"><button id="exitYes" class="ghost danger">Yes, exit Aave</button><button id="exitNo" class="ghost">Cancel</button></div>
+      </div>
+      <button id="resumeBtn" class="ghost" hidden>Resume lending</button>
+    </div>
+  </details>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<script>
+const CHAIN_ID = 84532n;
+const CHAIN_HEX = "0x14a34";
+const POOL = "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27";
+const USDC = "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f";
+const AUSDC = "0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC";
+const SCAN = "https://sepolia.basescan.org";
+const BYTECODE = "0x610100604052348015610010575f80fd5b5060405161251338038061251383398101604081905261002f916103e8565b80846040518060400160405280600e81526020016d425443205661756c74205553444360901b81525060405180604001604052806008815260200167189d18d5985d5b1d60c21b815250816003908161008891906104dc565b50600461009582826104dc565b5050505f806100a98361013160201b60201c565b91509150816100b95760126100bb565b805b60ff1660a05250506001600160a01b0390811660805281166100f757604051631e4fbdf760e01b81525f60048201526024015b60405180910390fd5b61010081610207565b5060016006556001600160a01b0380841660c05282811660e052610128908516845f19610258565b505050506105c3565b60408051600481526024810182526020810180516001600160e01b031663313ce56760e01b17905290515f918291829182916001600160a01b0387169161017791610596565b5f60405180830381855afa9150503d805f81146101af576040519150601f19603f3d011682016040523d82523d5f602084013e6101b4565b606091505b50915091508180156101c857506020815110155b156101fb575f818060200190518101906101e291906105ac565b905060ff81116101f9576001969095509350505050565b505b505f9485945092505050565b600580546001600160a01b038381166001600160a01b0319831681179093556040519116919082907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a35050565b604080516001600160a01b038416602482015260448082018490528251808303909101815260649091019091526020810180516001600160e01b0390811663095ea7b360e01b179091526102b0908590839061031c16565b61031657604080516001600160a01b03851660248201525f6044808301919091528251808303909101815260649091019091526020810180516001600160e01b0390811663095ea7b360e01b1790915261030c91869161036516565b6103168482610365565b50505050565b5f805f8060205f8651602088015f8a5af192503d91505f51905082801561035b5750811561034d578060011461035b565b5f866001600160a01b03163b115b9695505050505050565b5f8060205f8451602086015f885af180610384576040513d5f823e3d81fd5b50505f513d9150811561039b5780600114156103a8565b6001600160a01b0384163b155b1561031657604051635274afe760e01b81526001600160a01b03851660048201526024016100ee565b6001600160a01b03811681146103e5575f80fd5b50565b5f805f80608085870312156103fb575f80fd5b8451610406816103d1565b6020860151909450610417816103d1565b6040860151909350610428816103d1565b6060860151909250610439816103d1565b939692955090935050565b634e487b7160e01b5f52604160045260245ffd5b600181811c9082168061046c57607f821691505b60208210810361048a57634e487b7160e01b5f52602260045260245ffd5b50919050565b601f8211156104d757805f5260205f20601f840160051c810160208510156104b55750805b601f840160051c820191505b818110156104d4575f81556001016104c1565b50505b505050565b81516001600160401b038111156104f5576104f5610444565b610509816105038454610458565b84610490565b6020601f82116001811461053b575f83156105245750848201515b5f19600385901b1c1916600184901b1784556104d4565b5f84815260208120601f198516915b8281101561056a578785015182556020948501946001909201910161054a565b508482101561058757868401515f19600387901b60f8161c191681555b50505050600190811b01905550565b5f82518060208501845e5f920191825250919050565b5f602082840312156105bc575f80fd5b5051919050565b60805160a05160c05160e051611e916106825f395f81816103df015281816105810152818161093201528181610a410152818161142a01526114aa01525f818161038c015281816106b701528181610abd01528181611061015261125301525f61089601525f81816102d1015281816104e50152818161061e015281816106de015281816108f701528181610ae401528181611088015281816111b80152818161127a0152818161137e0152818161180301526118b50152611e915ff3fe608060405234801561000f575f80fd5b5060043610610213575f3560e01c80637535d2461161011f578063c2860610116100a9578063d6f1926211610079578063d6f192621461047c578063d905777e14610484578063dd62ed3e14610497578063ef8b30f714610456578063f2fde38b146104cf575f80fd5b8063c28606101461044d578063c63d75b614610309578063c6e6f59214610456578063ce96cb7714610469575f80fd5b80639ef0159f116100ef5780639ef0159f146103da578063a9059cbb14610401578063b3d7f6b914610414578063b460af9414610427578063ba0876521461043a575f80fd5b80637535d246146103875780638da5cb5b146103ae57806394bf804d146103bf57806395d89b41146103d2575f80fd5b806338d52e0f116101a05780635641ec03116101705780635641ec031461032f5780635ce6c327146103375780636e553f651461034457806370a0823114610357578063715018a61461037f575f80fd5b806338d52e0f146102cf578063402d267d146103095780634cdad506146102515780634fdf5d1d1461031c575f80fd5b8063095ea7b3116101e6578063095ea7b3146102645780630a28a4771461028757806318160ddd1461029a57806323b872dd146102a2578063313ce567146102b5575f80fd5b806301e1d11414610217578063046f7da21461023257806306fdde031461023c57806307a2d13a14610251575b5f80fd5b61021f6104e2565b6040519081526020015b60405180910390f35b61023a610601565b005b6102446107a5565b6040516102299190611ad6565b61021f61025f366004611b0b565b610835565b610277610272366004611b36565b610846565b6040519015158152602001610229565b61021f610295366004611b0b565b61085d565b60025461021f565b6102776102b0366004611b60565b610869565b6102bd61088e565b60405160ff9091168152602001610229565b7f00000000000000000000000000000000000000000000000000000000000000005b6040516001600160a01b039091168152602001610229565b61021f610317366004611b9e565b6108ba565b61023a61032a366004611bb9565b6108ed565b61023a610a05565b6008546102779060ff1681565b61021f610352366004611bf0565b610bc5565b61021f610365366004611b9e565b6001600160a01b03165f9081526020819052604090205490565b61023a610c22565b6102f17f000000000000000000000000000000000000000000000000000000000000000081565b6005546001600160a01b03166102f1565b61021f6103cd366004611bf0565b610c33565b610244610c7f565b6102f17f000000000000000000000000000000000000000000000000000000000000000081565b61027761040f366004611b36565b610c8e565b61021f610422366004611b0b565b610c9b565b61021f610435366004611c13565b610ca7565b61021f610448366004611c13565b610cfd565b61021f60075481565b61021f610464366004611b0b565b610d4a565b61021f610477366004611b9e565b610d55565b61021f610d6f565b61021f610492366004611b9e565b610d9d565b61021f6104a5366004611bb9565b6001600160a01b039182165f90815260016020908152604080832093909416825291909152205490565b61023a6104dd366004611b9e565b610dbb565b5f7f00000000000000000000000000000000000000000000000000000000000000006040516370a0823160e01b81523060048201526001600160a01b0391909116906370a0823190602401602060405180830381865afa158015610548573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061056c9190611c52565b6040516370a0823160e01b81523060048201527f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316906370a0823190602401602060405180830381865afa1580156105ce573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906105f29190611c52565b6105fc9190611c7d565b905090565b610609610df8565b610611610e25565b6008805460ff191690555f7f00000000000000000000000000000000000000000000000000000000000000006040516370a0823160e01b81523060048201526001600160a01b0391909116906370a0823190602401602060405180830381865afa158015610681573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906106a59190611c52565b90508015610765576001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001663617ba0377f00000000000000000000000000000000000000000000000000000000000000006040516001600160e01b031960e084901b1681526001600160a01b039091166004820152602481018490523060448201525f60648201526084015f604051808303815f87803b15801561074e575f80fd5b505af1158015610760573d5f803e3d5ffd5b505050505b6040518181527fc18d59353f4d9a5a26b5ce9502815f2122c73f1eb8618c467cd9b25c8d4e4c419060200160405180910390a1506107a36001600655565b565b6060600380546107b490611c90565b80601f01602080910402602001604051908101604052809291908181526020018280546107e090611c90565b801561082b5780601f106108025761010080835404028352916020019161082b565b820191905f5260205f20905b81548152906001019060200180831161080e57829003601f168201915b5050505050905090565b5f610840825f610e4f565b92915050565b5f33610853818585610e88565b5060019392505050565b5f610840826001610e9a565b5f33610876858285610eca565b610881858585610f32565b60019150505b9392505050565b5f6105fc60067f0000000000000000000000000000000000000000000000000000000000000000611cc8565b6008545f9060ff16806108db57506005546001600160a01b03838116911614155b6108e6575f19610840565b5f92915050565b6108f5610df8565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316826001600160a01b0316148061096657507f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316826001600160a01b0316145b1561098457604051636dcba98360e01b815260040160405180910390fd5b6040516370a0823160e01b8152306004820152610a019082906001600160a01b038516906370a0823190602401602060405180830381865afa1580156109cc573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906109f09190611c52565b6001600160a01b0385169190610f8f565b5050565b610a0d610df8565b610a15610e25565b6008805460ff191660011790556040516370a0823160e01b81523060048201525f906001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016906370a0823190602401602060405180830381865afa158015610a86573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610aaa9190611c52565b90505f8115610b7c576001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000166369328dec7f00000000000000000000000000000000000000000000000000000000000000006040516001600160e01b031960e084901b1681526001600160a01b0390911660048201525f1960248201523060448201526064016020604051808303815f875af1158015610b53573d5f803e3d5ffd5b505050506040513d601f19601f82011682018060405250810190610b779190611c52565b610b7e565b5f5b90507f6e3f54a3bbc3c481b934f861ffe317feea96ba41aa401ba03ad9125128e592a881604051610bb191815260200190565b60405180910390a150506107a36001600655565b5f80610bd0836108ba565b905080841115610c0257828482604051633c8097d960e11b8152600401610bf993929190611ce1565b60405180910390fd5b5f610c0c85610d4a565b9050610c1a33858784610fee565b949350505050565b610c2a610df8565b6107a35f61112e565b5f80610c3e836108ba565b905080841115610c675782848260405163284ff66760e01b8152600401610bf993929190611ce1565b5f610c7185610c9b565b9050610c1a33858388610fee565b6060600480546107b490611c90565b5f33610853818585610f32565b5f610840826001610e4f565b5f80610cb283610d55565b905080851115610cdb57828582604051633fa733bb60e21b8152600401610bf993929190611ce1565b5f610ce58661085d565b9050610cf4338686898561117f565b95945050505050565b5f80610d0883610d9d565b905080851115610d3157828582604051632e52afbb60e21b8152600401610bf993929190611ce1565b5f610d3b86610835565b9050610cf4338686848a61117f565b5f610840825f610e9a565b5f610840610d6283611358565b610d6a61137a565b61153f565b5f80610d796104e2565b90506007548111610d8a575f610d97565b600754610d979082611d02565b91505090565b5f610840610daa8361154e565b610d6a610db561137a565b5f610e9a565b610dc3610df8565b6001600160a01b038116610dec57604051631e4fbdf760e01b81525f6004820152602401610bf9565b610df58161112e565b50565b6005546001600160a01b031633146107a35760405163118cdaa760e01b8152336004820152602401610bf9565b600260065403610e4857604051633ee5aeb560e01b815260040160405180910390fd5b6002600655565b5f610887610e5b6104e2565b610e66906001611c7d565b610e726006600a611df8565b600254610e7f9190611c7d565b8591908561156b565b610e9583838360016115ad565b505050565b5f610887610eaa6006600a611df8565b600254610eb79190611c7d565b610ebf6104e2565b610e7f906001611c7d565b6001600160a01b038381165f908152600160209081526040808320938616835292905220545f198114610f2c5781811015610f1e57828183604051637dc7a0d960e11b8152600401610bf993929190611ce1565b610f2c84848484035f6115ad565b50505050565b6001600160a01b038316610f5b57604051634b637e8f60e11b81525f6004820152602401610bf9565b6001600160a01b038216610f845760405163ec442f0560e01b81525f6004820152602401610bf9565b610e9583838361167f565b6040516001600160a01b03838116602483015260448201839052610e9591859182169063a9059cbb906064015b604051602081830303815290604052915060e01b6020820180516001600160e01b038381831617835250505050611792565b610ff6610e25565b6005546001600160a01b0385811691161461102457604051635fc483c560e01b815260040160405180910390fd5b60085460ff161561104b57604051600162187f6960e01b0319815260040160405180910390fd5b611057848484846117fe565b6001600160a01b037f00000000000000000000000000000000000000000000000000000000000000001663617ba0377f00000000000000000000000000000000000000000000000000000000000000006040516001600160e01b031960e084901b1681526001600160a01b039091166004820152602481018590523060448201525f60648201526084015f604051808303815f87803b1580156110f8575f80fd5b505af115801561110a573d5f803e3d5ffd5b505050508160075f82825461111f9190611c7d565b90915550506001600655610f2c565b600580546001600160a01b038381166001600160a01b0319831681179093556040519116919082907f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0905f90a35050565b611187610e25565b6005546001600160a01b038681169116146111b557604051635fc483c560e01b815260040160405180910390fd5b5f7f00000000000000000000000000000000000000000000000000000000000000006040516370a0823160e01b81523060048201526001600160a01b0391909116906370a0823190602401602060405180830381865afa15801561121b573d5f803e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061123f9190611c52565b905080831115611317576001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000166369328dec7f00000000000000000000000000000000000000000000000000000000000000006112a38487611d02565b6040516001600160e01b031960e085901b1681526001600160a01b03909216600483015260248201523060448201526064016020604051808303815f875af11580156112f1573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906113159190611c52565b505b6113248686868686611882565b600754831015611341578260075461133c9190611d02565b611343565b5f5b600755506113516001600655565b5050505050565b6001600160a01b0381165f90815260208190526040812054610840905f610e4f565b5f807f00000000000000000000000000000000000000000000000000000000000000006040516370a0823160e01b81523060048201529091505f906001600160a01b038316906370a0823190602401602060405180830381865afa1580156113e4573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906114089190611c52565b6040516370a0823160e01b81523060048201529091505f906001600160a01b037f000000000000000000000000000000000000000000000000000000000000000016906370a0823190602401602060405180830381865afa15801561146f573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906114939190611c52565b6040516370a0823160e01b81526001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000811660048301529192505f918516906370a0823190602401602060405180830381865afa1580156114fc573d5f803e3d5ffd5b505050506040513d601f19601f820116820180604052508101906115209190611c52565b905061152c828261153f565b6115369084611c7d565b94505050505090565b5f828218828410028218610887565b6001600160a01b0381165f90815260208190526040812054610840565b5f61159861157883611942565b801561159357505f848061158e5761158e611e06565b868809115b151590565b6115a386868661196e565b610cf49190611c7d565b6001600160a01b0384166115d65760405163e602df0560e01b81525f6004820152602401610bf9565b6001600160a01b0383166115ff57604051634a1406b160e11b81525f6004820152602401610bf9565b6001600160a01b038085165f9081526001602090815260408083209387168352929052208290558015610f2c57826001600160a01b0316846001600160a01b03167f8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b9258460405161167191815260200190565b60405180910390a350505050565b6001600160a01b0383166116a9578060025f82825461169e9190611c7d565b909155506117069050565b6001600160a01b0383165f90815260208190526040902054818110156116e85783818360405163391434e360e21b8152600401610bf993929190611ce1565b6001600160a01b0384165f9081526020819052604090209082900390555b6001600160a01b03821661172257600280548290039055611740565b6001600160a01b0382165f9081526020819052604090208054820190555b816001600160a01b0316836001600160a01b03167fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef8360405161178591815260200190565b60405180910390a3505050565b5f8060205f8451602086015f885af1806117b1576040513d5f823e3d81fd5b50505f513d915081156117c85780600114156117d5565b6001600160a01b0384163b155b15610f2c57604051635274afe760e01b81526001600160a01b0385166004820152602401610bf9565b61182a7f0000000000000000000000000000000000000000000000000000000000000000853085611a24565b6118348382611a5d565b826001600160a01b0316846001600160a01b03167fdcbc1c05240f31ff3ad067ef1ee35ce4997762752e3a095284754544f4c709d78484604051611671929190918252602082015260400190565b826001600160a01b0316856001600160a01b0316146118a6576118a6838683610eca565b6118b08382611a91565b6118db7f00000000000000000000000000000000000000000000000000000000000000008584610f8f565b826001600160a01b0316846001600160a01b0316866001600160a01b03167ffbde797d201c681b91056529119e0b02407c7bb96a4a2c75c01fc9667232c8db8585604051611933929190918252602082015260400190565b60405180910390a45050505050565b5f600282600381111561195757611957611e1a565b6119619190611e2e565b60ff166001149050919050565b5f838302815f1985870982811083820303915050805f036119a25783828161199857611998611e06565b0492505050610887565b8084116119b9576119b96003851502601118611ac5565b5f848688095f868103871696879004966002600389028118808a02820302808a02820302808a02820302808a02820302808a02820302808a02909103029181900381900460010186841190950394909402919094039290920491909117919091029150509392505050565b6040516001600160a01b038481166024830152838116604483015260648201839052610f2c9186918216906323b872dd90608401610fbc565b6001600160a01b038216611a865760405163ec442f0560e01b81525f6004820152602401610bf9565b610a015f838361167f565b6001600160a01b038216611aba57604051634b637e8f60e11b81525f6004820152602401610bf9565b610a01825f8361167f565b634e487b715f52806020526024601cfd5b602081525f82518060208401528060208501604085015e5f604082850101526040601f19601f83011684010191505092915050565b5f60208284031215611b1b575f80fd5b5035919050565b6001600160a01b0381168114610df5575f80fd5b5f8060408385031215611b47575f80fd5b8235611b5281611b22565b946020939093013593505050565b5f805f60608486031215611b72575f80fd5b8335611b7d81611b22565b92506020840135611b8d81611b22565b929592945050506040919091013590565b5f60208284031215611bae575f80fd5b813561088781611b22565b5f8060408385031215611bca575f80fd5b8235611bd581611b22565b91506020830135611be581611b22565b809150509250929050565b5f8060408385031215611c01575f80fd5b823591506020830135611be581611b22565b5f805f60608486031215611c25575f80fd5b833592506020840135611c3781611b22565b91506040840135611c4781611b22565b809150509250925092565b5f60208284031215611c62575f80fd5b5051919050565b634e487b7160e01b5f52601160045260245ffd5b8082018082111561084057610840611c69565b600181811c90821680611ca457607f821691505b602082108103611cc257634e487b7160e01b5f52602260045260245ffd5b50919050565b60ff818116838216019081111561084057610840611c69565b6001600160a01b039390931683526020830191909152604082015260600190565b8181038181111561084057610840611c69565b6001815b6001841115611d5057808504811115611d3457611d34611c69565b6001841615611d4257908102905b60019390931c928002611d19565b935093915050565b5f82611d6657506001610840565b81611d7257505f610840565b8160018114611d885760028114611d9257611dae565b6001915050610840565b60ff841115611da357611da3611c69565b50506001821b610840565b5060208310610133831016604e8410600b8410161715611dd1575081810a610840565b611ddd5f198484611d15565b805f1904821115611df057611df0611c69565b029392505050565b5f61088760ff841683611d58565b634e487b7160e01b5f52601260045260245ffd5b634e487b7160e01b5f52602160045260245ffd5b5f60ff831680611e4c57634e487b7160e01b5f52601260045260245ffd5b8060ff8416069150509291505056fea26469706673582212205b1545de1ed34498532690365af9833152c81657303dc8204d3323d4ecbed82e64736f6c634300081a0033";
+
+const VAULT_ABI = [
+  "constructor(address usdc,address pool,address aToken,address owner_)",
+  "function owner() view returns (address)",
+  "function totalAssets() view returns (uint256)",
+  "function earned() view returns (uint256)",
+  "function exited() view returns (bool)",
+  "function balanceOf(address) view returns (uint256)",
+  "function convertToAssets(uint256) view returns (uint256)",
+  "function maxWithdraw(address) view returns (uint256)",
+  "function maxRedeem(address) view returns (uint256)",
+  "function deposit(uint256 assets,address receiver) returns (uint256)",
+  "function withdraw(uint256 assets,address receiver,address owner) returns (uint256)",
+  "function redeem(uint256 shares,address receiver,address owner) returns (uint256)",
+  "function emergencyExit()",
+  "function resume()"
+];
+const ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function allowance(address,address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)"
+];
+const POOL_ABI = [
+  "function getReserveData(address) view returns (tuple(uint256 configuration,uint128 liquidityIndex,uint128 currentLiquidityRate,uint128 variableBorrowIndex,uint128 currentVariableBorrowRate,uint128 currentStableBorrowRate,uint40 lastUpdateTimestamp,uint16 id,address aTokenAddress,address stableDebtTokenAddress,address variableDebtTokenAddress,address interestRateStrategyAddress,uint128 accruedToTreasury,uint128 unbacked,uint128 isolationModeTotalDebt))"
+];
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k){ try { return localStorage.getItem(k) } catch { return null } },
+  set(k,v){ try { localStorage.setItem(k,v) } catch {} }
+};
+let provider, signer, me, vault, usdc, pool;
+let tab = "deposit", walletBal = 0n, maxOut = 0n, maxShares = 0n, isOwner = false;
+
+const fmt = (v, dp=2) => Number(ethers.formatUnits(v, 6)).toLocaleString(undefined,{minimumFractionDigits:dp,maximumFractionDigits:dp});
+
+function say(msg, kind="") { const s=$("status"); s.hidden=false; s.className="status "+kind; s.innerHTML=msg; }
+function txLink(h){ return `<a href="${SCAN}/tx/${h}" target="_blank" rel="noopener">${h.slice(0,10)}…</a>`; }
+function errText(e){ return (e?.shortMessage || e?.info?.error?.message || e?.message || String(e)).replace(/</g,"&lt;"); }
+
+async function connect() {
+  if (!window.ethereum) {
+    say("No wallet found in this browser. Open this page in a browser with MetaMask or Coinbase Wallet installed, or in your wallet app's built-in browser.","err");
+    return;
+  }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    await ensureChain();
+    signer = await provider.getSigner();
+    me = await signer.getAddress();
+    usdc = new ethers.Contract(USDC, ERC20_ABI, signer);
+    pool = new ethers.Contract(POOL, POOL_ABI, provider);
+    $("connect").textContent = me.slice(0,6)+"…"+me.slice(-4);
+    const saved = store.get("vault:"+me);
+    if (saved) { $("vaultAddr").value = saved; useVault(saved); }
+    else { $("setup").open = true; await refresh(); say("Connected. Paste your vault address or deploy a new vault under Vault setup."); }
+    window.ethereum.on?.("accountsChanged", () => location.reload());
+    window.ethereum.on?.("chainChanged", () => location.reload());
+  } catch (e) { say(errText(e),"err"); }
+}
+
+async function ensureChain() {
+  const net = await provider.getNetwork();
+  if (net.chainId === CHAIN_ID) { setNet(true); return; }
+  try {
+    await provider.send("wallet_switchEthereumChain", [{ chainId: CHAIN_HEX }]);
+  } catch (e) {
+    if (e?.error?.code === 4902 || e?.code === 4902 || /Unrecognized|not added/i.test(errText(e))) {
+      await provider.send("wallet_addEthereumChain", [{ chainId: CHAIN_HEX, chainName: "Base Sepolia",
+        nativeCurrency: { name:"Ether", symbol:"ETH", decimals:18 },
+        rpcUrls: ["https://sepolia.base.org"], blockExplorerUrls: [SCAN] }]);
+    } else throw e;
+  }
+  provider = new ethers.BrowserProvider(window.ethereum);
+  setNet(true);
+}
+function setNet(ok){ const n=$("net"); n.className="pill "+(ok?"ok":"warn"); n.textContent= ok ? "● Base Sepolia" : "Wrong network"; }
+
+function useVault(addr) {
+  if (!ethers.isAddress(addr)) { say("That isn't a valid contract address.","err"); return; }
+  addr = ethers.getAddress(addr);
+  vault = new ethers.Contract(addr, VAULT_ABI, signer);
+  store.set("vault:"+me, addr);
+  const a = $("scan"); a.href = `${SCAN}/address/${addr}`; a.textContent = addr.slice(0,10)+"…"+addr.slice(-6);
+  refresh();
+}
+
+async function refresh() {
+  if (!signer) return;
+  try {
+    walletBal = await usdc.balanceOf(me);
+    $("wallet").textContent = fmt(walletBal);
+    const rd = await pool.getReserveData(USDC);
+    const apr = Number(rd.currentLiquidityRate) / 1e27, sec = 31536000;
+    $("apy").textContent = ((Math.pow(1 + apr/sec, sec) - 1) * 100).toFixed(2) + "%";
+    if (vault) {
+      const [total, earned, exited, owner, mw, mr] = await Promise.all([
+        vault.totalAssets(), vault.earned(), vault.exited(), vault.owner(), vault.maxWithdraw(me), vault.maxRedeem(me)]);
+      isOwner = owner.toLowerCase() === me.toLowerCase();
+      maxOut = mw; maxShares = mr;
+      $("bal").textContent = fmt(total, 6);
+      $("earned").textContent = "+" + fmt(earned, 6);
+      $("exitState").textContent = exited ? "Funds are parked in the vault. Deposits are paused." : "Funds are lent on Aave.";
+      $("exitBtn").hidden = exited; $("resumeBtn").hidden = !exited;
+      $("mode").textContent = exited ? "Paused: not earning" : "Lent to Aave v3";
+      if (!isOwner) say("This vault belongs to another wallet. Only its owner can deposit or withdraw.","err");
+    } else {
+      $("bal").textContent = "0.00"; $("earned").textContent = "+0.00"; maxOut = 0n;
+    }
+    $("exampleNote").hidden = true;
+    renderAction();
+  } catch (e) { say(errText(e),"err"); }
+}
+
+function renderAction() {
+  const avail = tab === "deposit" ? walletBal : maxOut;
+  $("avail").textContent = `Available: ${fmt(avail)} USDC`;
+  const go = $("go");
+  if (!signer) { go.disabled = true; go.textContent = "Connect wallet first"; return; }
+  if (!vault)  { go.disabled = true; go.textContent = "Set up your vault below"; return; }
+  if (!isOwner){ go.disabled = true; go.textContent = "Not your vault"; return; }
+  go.disabled = false;
+  go.textContent = tab === "deposit" ? "Deposit to vault" : "Withdraw to wallet";
+}
+
+function setTab(t){
+  tab = t;
+  $("tabDeposit").setAttribute("aria-selected", t==="deposit");
+  $("tabWithdraw").setAttribute("aria-selected", t==="withdraw");
+  $("amount").value = ""; renderAction();
+}
+
+async function act() {
+  let amt;
+  try { amt = ethers.parseUnits(($("amount").value || "0").trim(), 6); } catch { say("Enter an amount like 100 or 25.5","err"); return; }
+  if (amt <= 0n) { say("Enter an amount above zero.","err"); return; }
+  const go = $("go"); go.disabled = true;
+  try {
+    if (tab === "deposit") {
+      if (amt > walletBal) throw new Error("That's more USDC than your wallet holds.");
+      const allowance = await usdc.allowance(me, vault.target);
+      if (allowance < amt) {
+        say("Step 1 of 2: approve the vault to take this USDC. Confirm in your wallet.");
+        const t = await usdc.approve(vault.target, amt); await t.wait();
+      }
+      say("Confirm the deposit in your wallet.");
+      const tx = await vault.deposit(amt, me);
+      say("Depositing… " + txLink(tx.hash));
+      await tx.wait();
+      say("Deposited " + fmt(amt) + " USDC. It's now earning on Aave. " + txLink(tx.hash), "ok");
+    } else {
+      if (amt > maxOut) throw new Error("That's more than you can withdraw right now.");
+      say("Confirm the withdrawal in your wallet.");
+      const tx = (amt === maxOut) ? await vault.redeem(maxShares, me, me) : await vault.withdraw(amt, me, me);
+      say("Withdrawing… " + txLink(tx.hash));
+      await tx.wait();
+      say("Withdrew " + fmt(amt) + " USDC to your wallet. " + txLink(tx.hash), "ok");
+    }
+    $("amount").value = "";
+  } catch (e) { say(errText(e),"err"); }
+  await refresh();
+}
+
+async function deploy() {
+  if (!signer) { await connect(); if (!signer) return; }
+  try {
+    say("Confirm the deployment in your wallet. It costs a little test ETH.");
+    const f = new ethers.ContractFactory(VAULT_ABI, BYTECODE, signer);
+    const c = await f.deploy(USDC, POOL, AUSDC, me);
+    say("Deploying… " + txLink(c.deploymentTransaction().hash));
+    await c.waitForDeployment();
+    const addr = await c.getAddress();
+    $("vaultAddr").value = addr;
+    useVault(addr);
+    say("Vault deployed at <code>" + addr + "</code>. Saved in this browser.", "ok");
+  } catch (e) { say(errText(e),"err"); }
+}
+
+async function ownerTx(fn, label) {
+  try { say("Confirm in your wallet."); const tx = await vault[fn](); say(label+"… "+txLink(tx.hash)); await tx.wait(); say(label+" done. "+txLink(tx.hash),"ok"); }
+  catch (e) { say(errText(e),"err"); }
+  $("exitConfirm").hidden = true; refresh();
+}
+
+$("connect").onclick = connect;
+$("tabDeposit").onclick = () => setTab("deposit");
+$("tabWithdraw").onclick = () => setTab("withdraw");
+$("max").onclick = () => { const v = tab==="deposit" ? walletBal : maxOut; $("amount").value = ethers.formatUnits(v, 6); };
+$("go").onclick = act;
+$("saveAddr").onclick = () => signer ? useVault($("vaultAddr").value.trim()) : say("Connect your wallet first.","err");
+$("deploy").onclick = deploy;
+$("exitBtn").onclick = () => { if (!vault) return say("Set up your vault first.","err"); $("exitConfirm").hidden = false; };
+$("exitNo").onclick = () => { $("exitConfirm").hidden = true; };
+$("exitYes").onclick = () => ownerTx("emergencyExit", "Emergency exit");
+$("resumeBtn").onclick = () => ownerTx("resume", "Resume");
+setInterval(() => { if (vault) refresh(); }, 15000);
+</script>
