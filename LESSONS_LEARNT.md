@@ -44,3 +44,11 @@
 - **`vm.prank` only covers the next call.** `vault.redeem(vault.balanceOf(me), ...)` pranks `balanceOf`, not `redeem`. Read values into locals first.
 - **Keep the page backward compatible.** Old vaults have no `depositCap()`; the page catches the revert and shows "none (older vault)".
 - **Store vault addresses per chain** (`vault:<chainId>:<wallet>`) so test and real vaults never get mixed up.
+
+## Iteration 6 (second lender: Compound v3)
+- **Check testnet availability before choosing a protocol.** Compound has no Base Sepolia deployment, and Aave/Circle testnets use different USDC tokens, so a two-lender vault can't be tried end-to-end on testnet. The mainnet fork test becomes a hard gate.
+- **Validate the integration at deploy time**: the constructor checks `comet.baseToken() == usdc`, so a wrong Comet address fails loudly instead of losing funds later.
+- **Withdraw from both lenders.** After a move, interest or dust can remain on the old lender; `_withdraw` tries the current one first, then the other.
+- **Use Compound's "withdraw all" (`type(uint256).max`)** when emptying a position to avoid 1-wei leftovers.
+- **ERC-4626 rounding leaves ≤1 wei of dust** after a full redeem. Tests assert `≤ 1`, not `== 0`.
+- Kevin said "go with your recommendation" when no single pick had been stated. Name the pick and the reason in the first line before building.

@@ -76,6 +76,12 @@ details[open] summary::after{content:"−"}
 .netswitch button[data-real][aria-pressed="true"]{color:var(--bad)}
 .realbanner{font-size:.84rem;color:var(--bad);border:1px solid var(--bad);border-radius:10px;padding:10px 12px}
 .realbanner b{font-weight:600}
+.venues{display:grid;gap:8px}
+.venue{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.venue.on{border-color:var(--accent);background:var(--accent-soft)}
+.venue b{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums}
+.venue span{display:flex;flex-direction:column;gap:2px}
+.venue small{font-size:.74rem;color:var(--muted)}
 .confirm{display:grid;gap:8px;padding:12px;border:1px dashed var(--bad);border-radius:10px;font-size:.86rem}
 a{color:var(--accent)}
 code{font-family:var(--mono);font-size:.85em}
@@ -106,6 +112,19 @@ code{font-family:var(--mono);font-size:.85em}
       <div class="stat"><span class="label">Per day</span><b id="daily" class="up">+0.1384</b><small id="dailyNote">at today's rate</small></div>
       <div class="stat"><span class="label">Supply APY</span><b id="apy">4.12%</b></div>
       <div class="stat"><span class="label">USDC in wallet</span><b id="wallet">2,000.00</b><small>not yet earning</small></div>
+    </div>
+  </section>
+
+  <section class="panel" id="lenderPanel" aria-label="Where your USDC is lent" hidden>
+    <div class="label">Where it's lent</div>
+    <div class="venues">
+      <div class="venue" id="vAave"><span>Aave v3<small id="vAaveNote">—</small></span><b id="vAaveApy">—</b></div>
+      <div class="venue" id="vComp"><span>Compound v3<small id="vCompNote">—</small></span><b id="vCompApy">—</b></div>
+    </div>
+    <button id="moveBtn" class="ghost">Move</button>
+    <div id="moveConfirm" class="confirm" hidden>
+      <span id="moveText">Move everything?</span>
+      <div class="row"><button id="moveYes" class="ghost danger">Yes, move</button><button id="moveNo" class="ghost">Cancel</button></div>
     </div>
   </section>
 
@@ -157,8 +176,8 @@ code{font-family:var(--mono);font-size:.85em}
       <p id="exitState">Funds are lent on Aave.</p>
       <button id="exitBtn" class="ghost danger">Emergency exit</button>
       <div id="exitConfirm" class="confirm" hidden>
-        <span>This pulls all USDC out of Aave into the vault and pauses deposits. Interest stops until you resume.</span>
-        <div class="row"><button id="exitYes" class="ghost danger">Yes, exit Aave</button><button id="exitNo" class="ghost">Cancel</button></div>
+        <span>This pulls all USDC out of the lender into the vault and pauses deposits. Interest stops until you resume.</span>
+        <div class="row"><button id="exitYes" class="ghost danger">Yes, exit</button><button id="exitNo" class="ghost">Cancel</button></div>
       </div>
       <button id="resumeBtn" class="ghost" hidden>Resume lending</button>
     </div>
@@ -172,22 +191,28 @@ const NETS = {
     pool: "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27",
     usdc: "0xba50Cd2A20f6DA35D788639E581bca8d0B5d4D5f",   // Aave test USDC
     ausdc: "0x10F1A9D11CDf50041f3f8cB7191CBE2f31750ACC",
+    comet: null,                                          // Compound has no Base Sepolia deployment
     scan: "https://sepolia.basescan.org", rpc: "https://sepolia.base.org",
     cap: 1_000_000_000_000n },                            // 1,000,000 test USDC
   "8453": { id: 8453n, hex: "0x2105", name: "Base", real: true,
     pool: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
     usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",   // native USDC on Base
     ausdc: "0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB",  // aBasUSDC
+    comet: "0xb125E6687d4313864e53df431d5425969c15Eb2F",  // Compound v3 cUSDCv3
     scan: "https://basescan.org", rpc: "https://mainnet.base.org",
     cap: 100_000_000n }                                   // 100 USDC to start
 };
-// Addresses: bgd-labs/aave-address-book (AaveV3BaseSepolia.sol, AaveV3Base.sol), checked 2026-10-13
+// Addresses: bgd-labs/aave-address-book (AaveV3BaseSepolia.sol, AaveV3Base.sol) and
+// compound-finance/comet deployments/base/usdc/roots.json, checked 2026-10-14
 const BYTECODE = "__BYTECODE__";
 const MIN_DEPOSIT = 1_000_000n; // 1 USDC, matches BtcVault.MIN_DEPOSIT
 const UNCAPPED = 10n ** 30n;
 
 const VAULT_ABI = [
-  "constructor(address usdc,address pool,address aToken,address owner_,uint256 depositCap_)",
+  "constructor(address usdc,address pool,address aToken,address comet,address owner_,uint256 depositCap_)",
+  "function venue() view returns (uint8)",
+  "function hasCompound() view returns (bool)",
+  "function moveTo(uint8 to)",
   "function owner() view returns (address)",
   "function totalAssets() view returns (uint256)",
   "function earned() view returns (uint256)",
@@ -209,6 +234,10 @@ const ERC20_ABI = [
   "function allowance(address,address) view returns (uint256)",
   "function approve(address,uint256) returns (bool)"
 ];
+const COMET_ABI = [
+  "function getUtilization() view returns (uint256)",
+  "function getSupplyRate(uint256) view returns (uint64)"
+];
 const POOL_ABI = [
   "function getReserveData(address) view returns (tuple(uint256 configuration,uint128 liquidityIndex,uint128 currentLiquidityRate,uint128 variableBorrowIndex,uint128 currentVariableBorrowRate,uint128 currentStableBorrowRate,uint40 lastUpdateTimestamp,uint16 id,address aTokenAddress,address stableDebtTokenAddress,address variableDebtTokenAddress,address interestRateStrategyAddress,uint128 accruedToTreasury,uint128 unbacked,uint128 isolationModeTotalDebt))"
 ];
@@ -219,7 +248,8 @@ const store = {
   set(k,v){ try { localStorage.setItem(k,v) } catch {} }
 };
 let NET = NETS[store.get("net") || "84532"] || NETS["84532"];
-let provider, signer, me, vault, usdc, pool;
+let provider, signer, me, vault, usdc, pool, comet;
+let venue = 0, canCompound = false, apyAave = 0, apyComp = null;
 let tab = "deposit", walletBal = 0n, maxIn = 0n, maxOut = 0n, maxShares = 0n, isOwner = false, cap = null;
 
 const fmt = (v, dp=2) => Number(ethers.formatUnits(v, 6)).toLocaleString(undefined,{minimumFractionDigits:dp,maximumFractionDigits:dp});
@@ -262,6 +292,7 @@ async function connect() {
     me = await signer.getAddress();
     usdc = new ethers.Contract(NET.usdc, ERC20_ABI, signer);
     pool = new ethers.Contract(NET.pool, POOL_ABI, provider);
+    comet = NET.comet ? new ethers.Contract(NET.comet, COMET_ABI, provider) : null;
     $("connect").textContent = me.slice(0,6)+"…"+me.slice(-4);
     // migrate the testnet address saved by earlier versions of this page
     if (!NET.real && !store.get(vaultKey()) && store.get("vault:"+me)) store.set(vaultKey(), store.get("vault:"+me));
@@ -305,28 +336,41 @@ async function refresh() {
   try {
     walletBal = await usdc.balanceOf(me);
     $("wallet").textContent = fmt(walletBal);
+    const sec = 31536000;
     const rd = await pool.getReserveData(NET.usdc);
-    const apr = Number(rd.currentLiquidityRate) / 1e27, sec = 31536000;
-    $("apy").textContent = ((Math.pow(1 + apr/sec, sec) - 1) * 100).toFixed(2) + "%";
+    const aprAave = Number(rd.currentLiquidityRate) / 1e27;           // Aave: ray-scaled APR
+    apyAave = Math.pow(1 + aprAave/sec, sec) - 1;
+    let aprComp = null; apyComp = null;
+    if (comet) {
+      const r = await comet.getSupplyRate(await comet.getUtilization());  // Compound: per-second, 1e18
+      aprComp = Number(r) / 1e18 * sec;
+      apyComp = Math.pow(1 + aprComp/sec, sec) - 1;
+    }
     let base = 0n;
     if (vault) {
       const [total, earned, exited, owner, mw, mr, md] = await Promise.all([
         vault.totalAssets(), vault.earned(), vault.exited(), vault.owner(), vault.maxWithdraw(me), vault.maxRedeem(me), vault.maxDeposit(me)]);
       cap = await vault.depositCap().catch(() => null); // vaults deployed before the cap existed have none
+      venue = Number(await vault.venue().catch(() => 0n));               // older vaults are Aave-only
+      canCompound = await vault.hasCompound().catch(() => false);
       isOwner = owner.toLowerCase() === me.toLowerCase();
       maxOut = mw; maxShares = mr; maxIn = md; base = exited ? 0n : total;
       $("bal").textContent = fmt(total, 6);
       $("earned").textContent = "+" + fmt(earned, 6);
-      $("exitState").textContent = exited ? "Funds are parked in the vault. Deposits are paused." : "Funds are lent on Aave.";
+      $("exitState").textContent = exited ? "Funds are parked in the vault. Deposits are paused." : (venue === 1 ? "Funds are lent on Compound." : "Funds are lent on Aave.");
       $("exitBtn").hidden = exited; $("resumeBtn").hidden = !exited;
-      $("mode").textContent = exited ? "Paused: not earning" : "Lent to Aave v3";
+      $("mode").textContent = exited ? "Paused: not earning" : (venue === 1 ? "Lent on Compound v3" : "Lent on Aave v3");
       $("capVal").textContent = cap === null ? "none (older vault)" : (cap >= UNCAPPED ? "no limit" : fmt(cap, 0) + " USDC");
       $("capRow").hidden = cap === null || !isOwner;
       if (!isOwner) say("This vault belongs to another wallet. Only its owner can deposit or withdraw.","err");
     } else {
       $("bal").textContent = "0.00"; $("earned").textContent = "+0.00"; maxOut = 0n; maxIn = 0n;
+      venue = 0; canCompound = false;
       $("capVal").textContent = "—"; $("capRow").hidden = true;
     }
+    const apr = (venue === 1 && aprComp !== null) ? aprComp : aprAave;
+    $("apy").textContent = ((Math.pow(1 + apr/sec, sec) - 1) * 100).toFixed(2) + "%";
+    paintLenders();
     const perDay = amt => amt * (Math.pow(1 + apr/sec, 86400) - 1);
     const fmt4 = n => n.toLocaleString(undefined,{minimumFractionDigits:4,maximumFractionDigits:4});
     if (base > 0n) {
@@ -341,6 +385,41 @@ async function refresh() {
     $("exampleNote").hidden = true;
     renderAction();
   } catch (e) { say(errText(e),"err"); }
+}
+
+const pct = x => (x * 100).toFixed(2) + "%";
+
+function paintLenders() {
+  const show = !!(vault && canCompound && comet);
+  $("lenderPanel").hidden = !show;
+  if (!show) return;
+  $("vAaveApy").textContent = pct(apyAave);
+  $("vCompApy").textContent = apyComp === null ? "—" : pct(apyComp);
+  $("vAave").classList.toggle("on", venue === 0);
+  $("vComp").classList.toggle("on", venue === 1);
+  $("vAaveNote").textContent = venue === 0 ? "your USDC is here" : "";
+  $("vCompNote").textContent = venue === 1 ? "your USDC is here" : "";
+  const target = venue === 0 ? "Compound" : "Aave";
+  const diff = (venue === 0 ? (apyComp ?? 0) - apyAave : apyAave - (apyComp ?? 0)) * 100;
+  $("moveBtn").textContent = `Move to ${target} (${diff >= 0 ? "+" : ""}${diff.toFixed(2)}%)`;
+  $("moveBtn").disabled = !isOwner;
+}
+
+function askMove() {
+  const target = venue === 0 ? "Compound v3" : "Aave v3";
+  $("moveText").textContent = `This moves all your USDC to ${target} in one transaction. New deposits will go there too. Rates change all the time, so a small gap may not be worth the gas.`;
+  $("moveConfirm").hidden = false;
+}
+
+async function doMove() {
+  $("moveConfirm").hidden = true;
+  try {
+    say("Confirm the move in your wallet.");
+    const tx = await vault.moveTo(venue === 0 ? 1 : 0);
+    say("Moving… " + txLink(tx.hash)); await tx.wait();
+    say("Moved. Your USDC is now on " + (venue === 0 ? "Compound" : "Aave") + ". " + txLink(tx.hash), "ok");
+  } catch (e) { say(errText(e),"err"); }
+  refresh();
 }
 
 function renderAction() {
@@ -425,7 +504,7 @@ async function deploy() {
   try {
     say(`Confirm the deployment in your wallet. It costs a little ${NET.real ? "real" : "test"} ETH.`);
     const f = new ethers.ContractFactory(VAULT_ABI, BYTECODE, signer);
-    const c = await f.deploy(NET.usdc, NET.pool, NET.ausdc, me, NET.cap);
+    const c = await f.deploy(NET.usdc, NET.pool, NET.ausdc, NET.comet || ethers.ZeroAddress, me, NET.cap);
     say("Deploying… " + txLink(c.deploymentTransaction().hash));
     await c.waitForDeployment();
     const addr = await c.getAddress();
@@ -467,6 +546,9 @@ $("deploy").onclick = () => NET.real ? ($("deployConfirm").hidden = false) : dep
 $("deployYes").onclick = deploy;
 $("deployNo").onclick = () => { $("deployConfirm").hidden = true; };
 $("capBtn").onclick = setCap;
+$("moveBtn").onclick = askMove;
+$("moveYes").onclick = doMove;
+$("moveNo").onclick = () => { $("moveConfirm").hidden = true; };
 $("exitBtn").onclick = () => { if (!vault) return say("Set up your vault first.","err"); $("exitConfirm").hidden = false; };
 $("exitNo").onclick = () => { $("exitConfirm").hidden = true; };
 $("exitYes").onclick = () => ownerTx("emergencyExit", "Emergency exit");

@@ -79,3 +79,47 @@ contract MockPool {
         aToken.sendUnderlying(usdc, to, amt);
     }
 }
+
+/// @dev Compound III stand-in: tracks base supply per account; holds the USDC cash itself.
+contract MockComet {
+    IERC20 public immutable usdc;
+    mapping(address => uint256) public balanceOf;
+    uint64 public supplyRatePerSec = 1_902_587_519; // ~6% APR, 1e18-scaled
+
+    constructor(IERC20 _usdc) {
+        usdc = _usdc;
+    }
+
+    function baseToken() external view returns (address) {
+        return address(usdc);
+    }
+
+    function supply(address, uint256 amount) external {
+        usdc.transferFrom(msg.sender, address(this), amount);
+        balanceOf[msg.sender] += amount;
+    }
+
+    function withdraw(address, uint256 amount) external {
+        if (amount == type(uint256).max) amount = balanceOf[msg.sender];
+        require(amount <= balanceOf[msg.sender], "balance");
+        balanceOf[msg.sender] -= amount;
+        usdc.transfer(msg.sender, amount);
+    }
+
+    function getUtilization() external pure returns (uint256) {
+        return 8e17;
+    }
+
+    function getSupplyRate(uint256) external view returns (uint64) {
+        return supplyRatePerSec;
+    }
+
+    function accrue(address who, uint256 amt) external {
+        MockUSDC(address(usdc)).mint(address(this), amt);
+        balanceOf[who] += amt;
+    }
+
+    function borrowOut(uint256 amt, address to) external {
+        usdc.transfer(to, amt);
+    }
+}

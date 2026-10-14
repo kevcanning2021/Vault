@@ -12,9 +12,9 @@ Tick each box in order. Don't skip ahead.
 - [ ] Deploy a **fresh testnet vault** from the new page (has the deposit cap) and try going over the cap — it should refuse
 
 ## 2. Code checks
-- [x] 19 unit/fuzz tests pass, including cap tests
+- [x] 29 unit/fuzz tests pass, including cap and Aave ↔ Compound move tests
 - [x] Page ↔ contract verified on a local chain (cap, deposit, over-cap rejection, redeem)
-- [ ] Base mainnet fork test passes on Kevin's machine:
+- [ ] **Hard gate (Compound can't be tested on testnet):** Base mainnet fork test passes on Kevin's machine:
   `BASE_RPC=https://mainnet.base.org forge test --match-contract BaseFork -vv`
 - [ ] Optional but recommended for anything above ~$1,000: independent security review
 
@@ -29,8 +29,9 @@ Tick each box in order. Don't skip ahead.
 2. Vault setup → **Deploy a new vault** → confirm (cap starts at 100 USDC)
 3. Deposit **10 USDC** first. Check it on basescan.org
 4. Withdraw **5 USDC**. Confirm it lands in SafePal
-5. Then deposit the rest (up to the cap)
-6. Raise the cap later under Vault setup only once you're comfortable
+5. Tap **Move to Compound**, check the balance is unchanged, withdraw 1 USDC, then move back if you prefer
+6. Then deposit the rest (up to the cap)
+7. Raise the cap later under Vault setup only once you're comfortable
 
 ## Addresses (Base mainnet, chain 8453)
 Source: bgd-labs/aave-address-book `AaveV3Base.sol`, checked 2026-10-13
@@ -39,9 +40,11 @@ Source: bgd-labs/aave-address-book `AaveV3Base.sol`, checked 2026-10-13
 | Aave v3 Pool | `0xA238Dd80C259a72e81d7e4664a9801593F98d1c5` |
 | USDC (native) | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
 | aBasUSDC | `0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB` |
+| Compound v3 cUSDCv3 | `0xb125E6687d4313864e53df431d5425969c15Eb2F` |
 
 ## Risks you're accepting
 - **Unaudited contract.** A bug could lock or lose funds. The cap limits how much is exposed.
+- **Compound risk.** Same kind of risk as Aave; you only carry it while funds sit on Compound.
 - **Aave risk.** If Aave has a problem, funds can be delayed or lost. Aave is the most battle-tested lending market, but it's not risk-free.
 - **Phone wallet = one key.** If your SafePal seed phrase leaks, the vault can be emptied. Never share it.
 - **USDC depeg risk.** USDC is a stablecoin issued by Circle; it is designed to stay at $1 but that isn't guaranteed.

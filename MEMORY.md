@@ -6,7 +6,7 @@ Quick context for whoever picks this up next (human or Claude).
 | Topic | Decision |
 |---|---|
 | Scope | Smart contract + web app |
-| Yield source | Aave v3 |
+| Yield source | Aave v3, plus Compound v3 as second lender (added 2026-10-14); owner moves funds between them manually |
 | Chain | Base (Base Sepolia testnet first) |
 | "BTC" | Brand name only — pure USDC in, USDC out |
 | Users | Just Kevin (owner-only deposits) |
@@ -18,8 +18,8 @@ Quick context for whoever picks this up next (human or Claude).
 | Real money plan | Start under $100; owner = SafePal wallet; owner-adjustable deposit cap starting at 100 USDC; one page with Test/Real network switch (2026-10-13) |
 
 ## Current state
-- Contract: `src/BtcVault.sol`, compiles with solc 0.8.26, 9.9 KB bytecode.
-- Tests: 19 unit/fuzz passing (1,000 fuzz runs). Fork test written, not yet run (needs RPC access).
+- Contract: `src/BtcVault.sol`, compiles with solc 0.8.26, 12.1 KB bytecode.
+- Tests: 29 unit/fuzz passing (1,000 fuzz runs). Fork test written, not yet run (needs RPC access).
 - End-to-end: page ABI + bytecode verified on a local anvil chain (deploy, deposit, accrue, redeem).
 - Page: published as a private artifact "BTC Vault"; same file at `web/index.html`.
 - Repo: github.com/kevcanning2021/vault (public). Page served by GitHub Pages from `main` /docs → https://kevcanning2021.github.io/vault/
@@ -34,6 +34,8 @@ Quick context for whoever picks this up next (human or Claude).
 
 ## Base mainnet (8453)
 - Pool `0xA238Dd80C259a72e81d7e4664a9801593F98d1c5`, USDC `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, aBasUSDC `0x4e65fE4DbA92790696d040ac24Aa414708F5c0AB`
+- Compound v3 cUSDCv3 `0xb125E6687d4313864e53df431d5425969c15Eb2F` (source: compound-finance/comet deployments/base/usdc/roots.json)
+- Compound has **no Base Sepolia deployment**, so testnet vaults are Aave-only (COMET = 0). Compound path is proven by mocks + Base fork test only.
 - See MAINNET_CHECKLIST.md for go-live gates. Not deployed yet.
 - The existing testnet vault (0xC283…F889) predates the cap; page shows "none (older vault)" for it.
 

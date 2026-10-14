@@ -11,7 +11,7 @@ Ordered roughly by value. ⚠ = do before real money.
 
 ## Product
 6. **Yield history chart** — record `totalAssets` per day (event log or a small indexer) and draw earned-over-time.
-7. **Rate comparison** — show Aave vs Morpho vs Compound USDC rates; later, a strategy switcher (needs careful design and a timelock).
+7. ~~Rate comparison + switcher~~ Done for Aave ↔ Compound (2026-10-14). Next: add a Morpho vault (ERC-4626) as a third option.
 8. **Auto-buy BTC with yield** (if "BTC" ever becomes more than branding): periodically swap earned USDC to cbBTC via a DEX with slippage limits.
 9. **Merkl / Aave rewards claiming** — collect any incentive tokens Aave pays and convert them to USDC.
 10. **Multi-user mode** — remove the owner gate, add a per-user cap and deposit limit, keep the virtual-share offset.
@@ -25,3 +25,4 @@ Ordered roughly by value. ⚠ = do before real money.
 
 ## Onboarding
 16. **Faucet checklist on the page**: show live ETH + USDC balances with ✓/✗ and the exact faucet to use for each, so setup is self-guided.
+17. **Rate alert**: a scheduled task that checks Aave vs Compound daily and pings Kevin when the gap is > 1% for 3 days.
