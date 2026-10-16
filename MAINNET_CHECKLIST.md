@@ -12,10 +12,10 @@ Tick each box in order. Don't skip ahead.
 - [x] Deploy a **fresh testnet vault** from the new page (has the deposit cap) and try going over the cap — it should refuse (Kevin, 2026-10-16)
 
 ## 2. Code checks
-- [x] 29 unit/fuzz tests pass, including cap and Aave ↔ Compound move tests
+- [x] 29 unit/fuzz tests pass, including cap and Aave ↔ Compound move tests (also on Kevin's PC, 2026-10-16)
 - [x] Page ↔ contract verified on a local chain (cap, deposit, over-cap rejection, redeem)
 - [ ] **Hard gate (Compound can't be tested on testnet):** Base mainnet fork test passes on Kevin's machine:
-  `BASE_RPC=https://mainnet.base.org forge test --match-contract BaseFork -vv`
+  Windows: `powershell -ExecutionPolicy Bypass -File "$HOME\Documents\run-fork-test.ps1"` (copy in tools/)
 - [ ] Optional but recommended for anything above ~$1,000: independent security review
 
 ## 3. Wallet prep (real money)

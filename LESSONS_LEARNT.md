@@ -59,3 +59,10 @@
 - **Mobile wallets under-estimate gas** for lending calls. Estimate in the page and add a buffer; a failed tx on mainnet still costs gas.
 - **Wait for the allowance to land before depositing.** Two testnet deposits reverted right after an approve.
 - "Are you crazy?" came from depositing 10,000 test USDC sounding like real money. Always say "test" / "$0" next to testnet amounts.
+
+## Iteration 8 (fork test on Kevin's Windows PC)
+- Cowork's device shell can't mount folders until a Windows update is installed; deliver a PowerShell script via device_commit_files and read its log back with device_stage_files instead.
+- Public Base RPCs rate-limit forks (Cloudflare 525 pages). Rotate several RPCs and throttle with `--fork-retries/--fork-retry-backoff/--compute-units-per-second`.
+- **Those flags require `--fork-url`.** My first script omitted it and every run failed at argument parsing. Check a CLI's argument parsing locally before shipping a script.
+- Write results to a log file the user doesn't have to screenshot.
+- Unit tests: 29/29 passed on Kevin's machine (2026-10-16).
