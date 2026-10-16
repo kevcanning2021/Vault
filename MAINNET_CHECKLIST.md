@@ -4,12 +4,12 @@ Plan agreed 2026-10-13: start **under $100**, owner = Kevin's SafePal wallet, va
 
 Tick each box in order. Don't skip ahead.
 
-## 1. Testnet proof (in progress)
+## 1. Testnet proof ✅ done
 - [x] Deploy on Base Sepolia
 - [x] Deposit and withdraw work from SafePal mobile
 - [x] Earned is above 0 after 24–48 hours (0.000215 on 100 USDC; testnet rate ~0.03%, so tiny but real)
-- [ ] Emergency exit → withdraw → resume all work on testnet
-- [ ] Deploy a **fresh testnet vault** from the new page (has the deposit cap) and try going over the cap — it should refuse
+- [x] Emergency exit → withdraw → resume all work on testnet (Kevin, 2026-10-16)
+- [x] Deploy a **fresh testnet vault** from the new page (has the deposit cap) and try going over the cap — it should refuse (Kevin, 2026-10-16)
 
 ## 2. Code checks
 - [x] 29 unit/fuzz tests pass, including cap and Aave ↔ Compound move tests
