@@ -52,3 +52,10 @@
 - **Use Compound's "withdraw all" (`type(uint256).max`)** when emptying a position to avoid 1-wei leftovers.
 - **ERC-4626 rounding leaves ≤1 wei of dust** after a full redeem. Tests assert `≤ 1`, not `== 0`.
 - Kevin said "go with your recommendation" when no single pick had been stated. Name the pick and the reason in the first line before building.
+
+## Iteration 7 (first live review)
+- **Read on-chain state via Blockscout's API** (`base-sepolia.blockscout.com/api/v2/addresses/<addr>/...`) through WebFetch when RPC and BaseScan are blocked here.
+- **Testnet yield is near zero** (~0.03% APY on Base Sepolia Aave): too few borrowers. Don't promise visible testnet earnings; check the APY first.
+- **Mobile wallets under-estimate gas** for lending calls. Estimate in the page and add a buffer; a failed tx on mainnet still costs gas.
+- **Wait for the allowance to land before depositing.** Two testnet deposits reverted right after an approve.
+- "Are you crazy?" came from depositing 10,000 test USDC sounding like real money. Always say "test" / "$0" next to testnet amounts.

@@ -26,6 +26,7 @@ Quick context for whoever picks this up next (human or Claude).
 - Kevin uses the **SafePal mobile app**: open the Pages URL in SafePal's DApp browser.
 - **Deployed on Base Sepolia by Kevin (2026-10-13)** from the page. Vault address: `0xC2831B377558Db5093FbE8F5295d8F0E65D1F889` (https://sepolia.basescan.org/address/0xC2831B377558Db5093FbE8F5295d8F0E65D1F889).
 - Live test 2026-10-13: deposited 2 USDC, withdrew 1 USDC via SafePal mobile — both worked. Left running to observe yield.
+- Review 2026-10-16 (on-chain via Blockscout): vault holds 100.000215 aUSDC; net deposits 100 → earned 0.000215 in ~2.5 days (~0.03% APY: Base Sepolia Aave has almost no borrowers). 12 txs: 2 deposits reverted (likely approve/deposit race), 1 withdraw out of gas (SafePal under-estimated). Fixed in page: 30% gas buffer + wait for allowance.
 
 ## Key addresses (Base Sepolia, 84532)
 - Pool `0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27`

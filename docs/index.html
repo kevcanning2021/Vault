@@ -415,7 +415,7 @@ async function doMove() {
   $("moveConfirm").hidden = true;
   try {
     say("Confirm the move in your wallet.");
-    const tx = await vault.moveTo(venue === 0 ? 1 : 0);
+    const tx = await send(vault, "moveTo", venue === 0 ? 1 : 0);
     say("Moving… " + txLink(tx.hash)); await tx.wait();
     say("Moved. Your USDC is now on " + (venue === 0 ? "Compound" : "Aave") + ". " + txLink(tx.hash), "ok");
   } catch (e) { say(errText(e),"err"); }
@@ -441,6 +441,24 @@ function setTab(t){
   $("tabDeposit").setAttribute("aria-selected", t==="deposit");
   $("tabWithdraw").setAttribute("aria-selected", t==="withdraw");
   $("amount").value = ""; $("realConfirm").hidden = true; renderAction();
+}
+
+// Wallet apps sometimes under-estimate gas for Aave/Compound calls (seen on SafePal: one
+// withdraw ran out of gas). Estimate ourselves and add a 30% buffer.
+async function send(contract, fn, ...args) {
+  let gasLimit;
+  gasLimit = (await contract[fn].estimateGas(...args)) * 13n / 10n; // a revert here shows the real reason before signing
+  return contract[fn](...args, { gasLimit });
+}
+
+// After an approval, wait until the chain reports the new allowance before depositing,
+// so the deposit can't race ahead of it (seen twice on testnet as reverted deposits).
+async function waitForAllowance(amt) {
+  for (let i = 0; i < 10; i++) {
+    if ((await usdc.allowance(me, vault.target)) >= amt) return;
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  throw new Error("The approval hasn't shown up on-chain yet. Wait a few seconds and tap Deposit again.");
 }
 
 function readAmount() {
@@ -478,17 +496,18 @@ async function act(amt) {
       const allowance = await usdc.allowance(me, vault.target);
       if (allowance < amt) {
         say("Step 1 of 2: approve the vault to take this USDC. Confirm in your wallet.");
-        const t = await usdc.approve(vault.target, amt); await t.wait();
+        const t = await send(usdc, "approve", vault.target, amt); await t.wait();
+        await waitForAllowance(amt);
       }
       say("Confirm the deposit in your wallet.");
-      const tx = await vault.deposit(amt, me);
+      const tx = await send(vault, "deposit", amt, me);
       say("Depositing… " + txLink(tx.hash));
       await tx.wait();
       say("Deposited " + fmt(amt) + " USDC. It's now earning on Aave. " + txLink(tx.hash), "ok");
     } else {
       if (amt > maxOut) throw new Error("That's more than you can withdraw right now.");
       say("Confirm the withdrawal in your wallet.");
-      const tx = (amt === maxOut) ? await vault.redeem(maxShares, me, me) : await vault.withdraw(amt, me, me);
+      const tx = (amt === maxOut) ? await send(vault, "redeem", maxShares, me, me) : await send(vault, "withdraw", amt, me, me);
       say("Withdrawing… " + txLink(tx.hash));
       await tx.wait();
       say("Withdrew " + fmt(amt) + " USDC to your wallet. " + txLink(tx.hash), "ok");
@@ -519,14 +538,14 @@ async function setCap() {
   try { v = ethers.parseUnits(($("capInput").value || "").trim(), 6); } catch { say("Enter a cap like 250","err"); return; }
   try {
     say("Confirm the new cap in your wallet.");
-    const tx = await vault.setDepositCap(v); say("Updating cap… " + txLink(tx.hash)); await tx.wait();
+    const tx = await send(vault, "setDepositCap", v); say("Updating cap… " + txLink(tx.hash)); await tx.wait();
     say("Deposit cap is now " + fmt(v, 0) + " USDC. " + txLink(tx.hash), "ok"); $("capInput").value = "";
   } catch (e) { say(errText(e),"err"); }
   refresh();
 }
 
 async function ownerTx(fn, label) {
-  try { say("Confirm in your wallet."); const tx = await vault[fn](); say(label+"… "+txLink(tx.hash)); await tx.wait(); say(label+" done. "+txLink(tx.hash),"ok"); }
+  try { say("Confirm in your wallet."); const tx = await send(vault, fn); say(label+"… "+txLink(tx.hash)); await tx.wait(); say(label+" done. "+txLink(tx.hash),"ok"); }
   catch (e) { say(errText(e),"err"); }
   $("exitConfirm").hidden = true; refresh();
 }

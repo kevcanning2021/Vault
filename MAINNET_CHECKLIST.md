@@ -7,7 +7,7 @@ Tick each box in order. Don't skip ahead.
 ## 1. Testnet proof (in progress)
 - [x] Deploy on Base Sepolia
 - [x] Deposit and withdraw work from SafePal mobile
-- [ ] Earned is above 0 after 24–48 hours
+- [x] Earned is above 0 after 24–48 hours (0.000215 on 100 USDC; testnet rate ~0.03%, so tiny but real)
 - [ ] Emergency exit → withdraw → resume all work on testnet
 - [ ] Deploy a **fresh testnet vault** from the new page (has the deposit cap) and try going over the cap — it should refuse
 
